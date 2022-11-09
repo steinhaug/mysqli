@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.4.4
+ * Mysqli Abstraction Layer v1.4.7
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -35,6 +35,8 @@
  *   Gives you the local charsets for the database needed for collate
  * ->return_full_columns($table_name)
  *   Fetches all the metadata for a given table
+ * ->return_columns($table_name, what_to_return, (bool) array_shift returned array)
+ *   Fetches all the metadata, but returns only specific meta
  * ->parse_col_type($column_name)
  *   internal function for how to handle the data from the different column types
  * ->query_exporter(...)
@@ -47,7 +49,7 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.4.6';
+    private $version = '1.4.7';
 
     static $die_on_error = true;
 
@@ -140,7 +142,7 @@ class Mysqli2 extends mysqli
         //var_dump( $res );
 
         echo "<br>\nGlobal logfile() test.<br>\n";
-        $logdir = 'd:/htdocs/xr/logs';
+        $logdir = 'E:/htdocs-net-work-as/forhandlerportal.net-work/forhandler.net-work.no/logs';
         if (!empty($GLOBALS['logdir_serverPath'])) {
             $logdir = $GLOBALS['logdir_serverPath'];
         }
@@ -252,15 +254,24 @@ class Mysqli2 extends mysqli
 
     /**
      * Chain-filter for query() funksjon, preprocessing av spørringen
-     *
+     * 
+     * assoc                    returns as assoc resultset
+     * text, o int              returns a comma seperated list, om int er det bare denne kolonanna som er med
+     * array, o valFilter       returns a resultset array
+     *        'int'                 return integer
+     *        '[int]'               return [ integer ], int inside array
+     *        'int=>string'         resultatsettet er en associative array hvor key og value er fra kolonne 1 og 2 fra query
+     *        'string=>string'      ?
+     *        '^int=>'              ?
+     *        '^string=>'           ?
+     * 
+     * 
      * Mulige $param1 : $mysqli->result('array',[int])->query(...
+     * 
+     * @param string $result_filter Name of filter to use
+     * @param mixed $typeof         Optional extra settings
      *
-     *      assoc: resultatsettet returnert som en associative array 
-     *      text, opt int: resultatsettet som tekst pr linje, om int er det bare denne kolonanna som er med
-     *      array: resultatsettet returnert som en array
-     *      array, 'int': resultatsettet er bare tall
-     *      array, '[int]': resultatsettet er en array med tallet
-     *      array, 'int=>string': resultatsettet er en associative array hvor key og value er fra kolonne 1 og 2 fra query
+     * @return $this
      */
     public function result($result_filter, $typeof = null)
     {
@@ -307,6 +318,10 @@ class Mysqli2 extends mysqli
             if(empty($GLOBALS['dashboardLoaded'])){
                 echo 'DB ERROR #' . $error_no . "\n";
                 echo '-- ' . $error_message;
+                if($GLOBALS['localmode']){
+                    echo "-- <br>\n";
+                    echo htmlentities($sql_query);
+                }
             } else {
                 // Assuming theese are opened.
                 echo '</div></div></div></div>';
@@ -419,6 +434,11 @@ class Mysqli2 extends mysqli
     public function query($query, $resultmode = null)
     {
 
+        if( is_object($query) ){
+            logerror('SQL Query cannot be an object!', true, debug_backtrace(0));
+            exit;
+        }
+
         $this->chaining_before($query);
 
         if (!$this->real_query($query))
@@ -508,12 +528,18 @@ class Mysqli2 extends mysqli
     /**
      * When the select always returns 1 result, then return the value(s).
      *
-     * Return types: 0, first index of result. Else the total result.
+     * Return types: 'insert_id' for insert to return ID, 0 for first array index of assoc result. Else the total result as assoc.
      *
      * @return string The value corresponding to [0] from the rowset
      */
     public function query1($query, $return = null)
     {
+
+        if( is_object($query) ){
+            logerror('SQL Query cannot be an object!', true, debug_backtrace(0));
+            exit;
+        }
+
 
         $this->chaining_before($query);
 
@@ -521,7 +547,10 @@ class Mysqli2 extends mysqli
             return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
         $result = new mysqli_result($this);
-        if ($return === 0) {
+
+        if ($return === 'insert_id') {
+            return $this->insert_id;
+        } else if ($return === 0) {
             $row = $result->fetch_row();
             return $row[0];
         } else if( is_numeric($return) and ($return > 0) ){
@@ -776,6 +805,36 @@ class Mysqli2 extends mysqli
         }
         return $table_data;
     }
+
+    /**
+     * Get the column data for a table, quick way for only retrieving column names
+     *
+     * @param string $table Table name
+     * @param mixed $return What to return, defaults to name and if replaced with boolean true replaces $shift_first
+     * @param boolean $shift_first array_shift the result set
+     * 
+     * @return array The results
+     */
+    public function return_columns($table, $return = 'name', $shift_first = false){
+
+        $cols = $this->return_full_columns($table);
+
+        $data = [];
+        foreach($cols as $col){
+            $data[] = $col['Field'];
+        }
+
+        if(
+            $shift_first
+            or
+            ($return === true and $shift_first === false)
+        ){
+            array_shift($data);
+        }
+
+        return $data;
+    }
+
 
     /**
      * Simplify the type of column for further processing
