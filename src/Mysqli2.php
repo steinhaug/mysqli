@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.4.7
+ * Mysqli Abstraction Layer v1.6.0
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -49,7 +49,7 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.4.7';
+    private $version = '1.6.0';
 
     static $die_on_error = true;
 
@@ -78,7 +78,7 @@ class Mysqli2 extends mysqli
 
     protected $result_filter = null;
 
-    static $logfile_folder_path = null; // 'D:\htdocs\xr\logs';
+    static $logfile_folder_path = null;
 
     public $error_message = '';
 
@@ -139,10 +139,9 @@ class Mysqli2 extends mysqli
         echo "-- Quering database: SHOW VARIABLES;<br>\n";
         $vars = $this->result('array')->query("SHOW VARIABLES");
         echo '-- returned ' . count($vars) . ' variables.' . "<br>\n";
-        //var_dump( $res );
 
         echo "<br>\nGlobal logfile() test.<br>\n";
-        $logdir = 'E:/htdocs-net-work-as/forhandlerportal.net-work/forhandler.net-work.no/logs';
+        $logdir = 'I:/htdocs-net-work-as/steinhaug/mysqli/logs';
         if (!empty($GLOBALS['logdir_serverPath'])) {
             $logdir = $GLOBALS['logdir_serverPath'];
         }
@@ -932,7 +931,7 @@ class Mysqli2 extends mysqli
 
         $length = null;
 
-        $string = strtolower( $column['Type'] );
+        $string = mb_strtolower( $column['Type'] );
         if( substr($string, 0, 8) == 'varchar(' ){
             $length = substr($string, 8, -1);
         }
@@ -1063,7 +1062,7 @@ class Mysqli2 extends mysqli
             return true;
         }
 
-        if (strtolower($val) === 'null') {
+        if (mb_strtolower($val) === 'null') {
             return true;
         }
 
@@ -1168,14 +1167,14 @@ class Mysqli2 extends mysqli
 
                 $querystart = substr(trim(substr($the_string, 0, 15)), 0, 6);
 
-                if( strtoupper($querystart) == strtoupper('UPDATE') ){
+                if( mb_strtoupper($querystart) == mb_strtoupper('UPDATE') ){
                     if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.UPDATE.log', 'a+')) {
                         fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
                         fclose($fh);
                     }
                 }
 
-                if( strtoupper($querystart) == strtoupper('INSERT') ){
+                if( mb_strtoupper($querystart) == mb_strtoupper('INSERT') ){
                     if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.INSERT.log', 'a+')) {
                         fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
                         fclose($fh);
@@ -1374,7 +1373,7 @@ class Mysqli2 extends mysqli
             return $this->process_error($stmt->error, $sql, $stmt->errno, '', __METHOD__);
 
         // If it's a DELETE we do not need more and close here
-        if( strtoupper(substr($sql, 0, 12)) == 'DELETE FROM ' )
+        if( mb_strtoupper(substr($sql, 0, 12)) == 'DELETE FROM ' )
         {
             $ret = $stmt->affected_rows;
             $stmt->close();
@@ -2019,7 +2018,7 @@ class Mysqli2 extends mysqli
         } else if($var === NULL || $var === 'NULL' || $var === 'null'){
             return false;
         } else if(is_string($var)){
-            $var = strtolower(trim($var));
+            $var = mb_strtolower(trim($var));
             if($var=='false'){ return false;
             } else if($var=='true'){ return true;
             } else if($var=='no'){ return false;
