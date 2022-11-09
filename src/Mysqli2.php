@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.4.2
+ * Mysqli Abstraction Layer v1.4.4
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -47,7 +47,9 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.4.2';
+    private $version = '1.4.6';
+
+    static $die_on_error = true;
 
     protected static $instance;
     protected static $options = [];
@@ -56,8 +58,11 @@ class Mysqli2 extends mysqli
     protected static $verbose_queries = false;
     protected static $verbose_type = 'html';
 
-    protected static $log_once = false;
+    protected static $log_skip_writing = false;
+    protected static $log_once = null;
     protected static $log_once_tag = '';
+
+    protected static $log_what_queries = 'none';
 
     protected static $echo_once = false;
     protected static $echo_once_b = false;
@@ -71,17 +76,81 @@ class Mysqli2 extends mysqli
 
     protected $result_filter = null;
 
-    static $logfile_folder_path = 'D:/htdocs/fimo/logs';
+    static $logfile_folder_path = null; // 'D:\htdocs\xr\logs';
+
+    public $error_message = '';
 
     public function getVersion()
     {
         return $this->version;
     }
 
+    public static function set_log_what_queries($v)
+    {
+        self::$log_what_queries = $v;
+
+    }
+
     public static function set_logfile_path($path)
     {
+        if( strpos($path, "\\") !== false ){
+            die('mysqli_connect.php config error: set_logfile_path( $PATH ) <- Do not use slashes in path, only use forward slashes.');
+        }
+
         self::$logfile_folder_path = $path;
+
+        //self::check_logfile_path();
     }
+
+    public function check_logfile_path()
+    {
+
+        $logfile = self::$logfile_folder_path . '/' . 'sqllog' . '.log';
+        echo '$mysqli->check_logfile_path ...' . "<br>\n-- logfile path: " . $logfile . "<br>\n";
+
+        if( substr(self::$logfile_folder_path,-1) == '/' )
+            echo '** Syntax error in path, should not have ending slash! <br>' . "\n" . self::$logfile_folder_path . "<br>\n";
+
+        if( file_exists($logfile) ){
+            $byte = filesize($logfile);
+            echo '-- File exists (' . $byte . ' bytes)!' . "<br>\n";
+        } else {
+            echo '-- File does not exist!' . "<br>\n";
+        }
+
+        echo "-- Test write, adding " . strlen('Test write...' . "\n") . " bytes to logfile ...<br>\n";
+
+        if ($fh = @fopen($logfile, 'a+')) {
+            fputs($fh, 'Test write...' . "\n", strlen('Test write...' . "\n"));
+            fclose($fh);
+        }
+
+        if (file_exists($logfile)) {
+            clearstatcache();
+            $byte = filesize($logfile);
+            echo '-- SQL Logfile exists (' . $byte . ' bytes)!' . "<br>\n";
+        } else {
+            echo '-- SQL Logfile does not exist!' . "<br>\n";
+        }
+
+        echo "<br>\nQUERY Checks<br>\n";
+        echo "-- Quering database: SHOW VARIABLES;<br>\n";
+        $vars = $this->result('array')->query("SHOW VARIABLES");
+        echo '-- returned ' . count($vars) . ' variables.' . "<br>\n";
+        //var_dump( $res );
+
+        echo "<br>\nGlobal logfile() test.<br>\n";
+        $logdir = 'd:/htdocs/xr/logs';
+        if (!empty($GLOBALS['logdir_serverPath'])) {
+            $logdir = $GLOBALS['logdir_serverPath'];
+        }
+        echo '-- logdir: ' .  $logdir . "<br>\n";
+        echo '-- Exist and is directory: ' . (is_dir($logdir)?'yes':'no') . "<br>\n";
+
+        echo "<br>\nremove call to checkstatus to continue...";
+        exit;
+    }
+
 
     public function __construct()
     {
@@ -169,6 +238,12 @@ class Mysqli2 extends mysqli
             }
         }
 
+        if( substr($title,0,1) == '!' ){
+            self::$log_skip_writing = true;
+        } else {
+            self::$log_skip_writing = false;
+        }
+
         self::$log_once = true;
         self::$log_once_tag = $file_path . ':' . $_db[0]['line'] . ' ' . $title;
 
@@ -178,8 +253,10 @@ class Mysqli2 extends mysqli
     /**
      * Chain-filter for query() funksjon, preprocessing av spørringen
      *
-     * Mulige $param1 :
+     * Mulige $param1 : $mysqli->result('array',[int])->query(...
+     *
      *      assoc: resultatsettet returnert som en associative array 
+     *      text, opt int: resultatsettet som tekst pr linje, om int er det bare denne kolonanna som er med
      *      array: resultatsettet returnert som en array
      *      array, 'int': resultatsettet er bare tall
      *      array, '[int]': resultatsettet er en array med tallet
@@ -204,24 +281,90 @@ class Mysqli2 extends mysqli
     }
 
     /**
-     * Performs a query on the database
+     * Logic when an error occures, all errors should execute this function
      *
-     * @param string $query The query string.
-     * @param mixed $resultmode Void
-     * 
-     * @return Returns FALSE on failure. For successful SELECT, SHOW, DESCRIBE or EXPLAIN queries query() will return a mysqli_result object. For other successful queries query() will return TRUE.
+     * @param string $error_message  The SQL Error reported my server
+     * @param string $sql_query      The SQL Query
+     * @param string $error_number   The SQL Error ID reported by server
+     * @param string $reference      A tag or other reference to where the SQL is originating from
+     * @param string $caller         Name of fuction where the error occured
+     *
+     * @return false
      */
-    public function query($query, $resultmode = null)
+    public function process_error($error_message, $sql_query, $error_number = '', $reference = '', $caller='')
     {
 
+        if( is_array($sql_query) ){
+            $sql_query = json_encode($sql_query);
+        }
+
+        $this->write_to_logfile('ERROR SQL: ' . $sql_query, null, true);
+        $this->write_to_logfile($error_message, null, true);
+
+        $error_no = sqlError__alertAndStop((strlen($error_number)?'#' . $error_number . ', ':'') . $error_message, $sql_query, $reference);
+        if (self::$die_on_error) {
+
+            if(empty($GLOBALS['dashboardLoaded'])){
+                echo 'DB ERROR #' . $error_no . "\n";
+                echo '-- ' . $error_message;
+            } else {
+                // Assuming theese are opened.
+                echo '</div></div></div></div>';
+
+                echo '
+                    <script>
+                    $(document).ready(function(){
+                        let dynmodal = new DynModal.Core();
+                        dynmodal.setHeaderTitle("SQL Error #' . $error_no . '")
+                            .setShowCloseButton(false)
+                            .setBody(function() {
+                                return \'<h1 class="mt-n25">EN DATABASEFEIL HAR OPPSTÅTT</h1><p>Det har oppstått en feil i kommunikasjonen mot databasen, feilen er logget og det er sendt varsel til webmaster.</p><p>Databasefeil #' . $error_no . ' vil bli rettet med første annledning!</p><p>Om du er i kontakt med teknisk support kan du referere til denne feilen som databasefeil #' . $error_no . '</p><p><a href="/">Tilbake til forsiden</a><br>&nbsp; eller <br><a href="/?s=' . $_GET['s'] . '">Tilbake til &quot;' . $_GET['s'] . '&quot; modulen</a></p>\';
+                        }).setFooter([]).buildAndShow(\'static\');
+
+                    });
+                    </script>
+                ';
+
+                echo '</body></html>';
+            }
+
+            exit;
+        }
+
+        throw new exception($error_message, $error_number);
+
+        return false;
+    }
+
+
+    public function chaining_before($query, $multi_types = null, $muli_vars = null)
+    {
+        if( self::$log_what_queries == 'all' and self::$log_once === null ){
+            self::$log_once = true;
+        }
+
         if (self::$log_once) {
-            self::$log_once = false;
+            self::$log_once = null;
             if (!empty(self::$log_once_tag)) {
                 $this->write_to_logfile(self::$log_once_tag);
                 self::$log_once_tag = '';
             }
-            $this->write_to_logfile($query);
+
+            if ($multi_types === null and $muli_vars === null) {
+                $this->write_to_logfile($query);
+            } else {
+                $this->write_to_logfile($query . "\n" . 
+                                    line_pad(
+                                        $this->prettyprint_types(print_r($multi_types, true)) . "\n" .
+                                        print_r($muli_vars, true)
+                                            , 4)
+                                       );
+            }
         }
+
+
+
+
 
         if (self::$echo_once) {
             self::$echo_once = false;
@@ -241,13 +384,9 @@ class Mysqli2 extends mysqli
             echo '.';
         }
 
-        if (!$this->real_query($query)) {
-            $this->write_to_logfile('sqlerror: ' . $this->errno . ', ' . $this->error);
-            $this->write_to_logfile($query);
-            throw new exception($this->error, $this->errno);
-        }
-
-        $result = new mysqli_result($this);
+    }
+    public function chaining_after($query)
+    {
 
         if (self::$echo_once_b) {
             self::$echo_once_b = false;
@@ -261,21 +400,62 @@ class Mysqli2 extends mysqli
             echo $this->debugLoadDeps();
         }
 
+        self::$log_skip_writing = false;
+        self::$log_once = null;
+        self::$echo_once = false;
+        self::$echo_once_b = false;
+        self::$echo_load_dependencies = false;
+
+    }
+
+    /**
+     * Performs a query on the database
+     *
+     * @param string $query The query string.
+     * @param mixed $resultmode Void
+     * 
+     * @return Returns FALSE on failure. For successful SELECT, SHOW, DESCRIBE or EXPLAIN queries query() will return a mysqli_result object. For other successful queries query() will return TRUE.
+     */
+    public function query($query, $resultmode = null)
+    {
+
+        $this->chaining_before($query);
+
+        if (!$this->real_query($query))
+            return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
+
+        $result = new mysqli_result($this);
+
+        $this->chaining_after($query);
+
         $result_filter = $this->result_filter;
         $this->result_filter = null;
 
         if( $result_filter !== null ){
             if (is_array($result_filter) and ($result_filter[0] === 'assoc')) {
-                if($result->num_rows == 1){
-                    $new_result = $result->fetch_assoc();
-                } else {
+                //if($result->num_rows == 1){
+                //    $new_result = $result->fetch_assoc();
+                //} else {
                     $new_result = [];
                     if ($result->num_rows) {
                         while ($row = $result->fetch_assoc()) {
                             $new_result[] = $row;
                         }
                     }
+                //}
+            } else if(is_array($result_filter) and ($result_filter[0] === 'text')){
+                $new_result = '';
+                if( $result->num_rows ){
+                    while ($row = $result->fetch_row()) {
+
+                        if($result_filter[1] !== null){
+                            $new_result .= $row[ (int) $result_filter[1] ] . "\n";
+                        } else {
+                            $new_result .= implode(', ', $row) . "\n";
+                        }
+                    }
                 }
+
             } else if(is_array($result_filter) and ($result_filter[0] === 'array')){
                 $new_result = [];
                 if( $result->num_rows ){
@@ -322,7 +502,6 @@ class Mysqli2 extends mysqli
             }
         }
 
-
         return $result;
     }
 
@@ -336,23 +515,11 @@ class Mysqli2 extends mysqli
     public function query1($query, $return = null)
     {
 
-        if (self::$log_once) {
-            self::$log_once = false;
-            if (!empty(self::$log_once_tag)) {
-                $this->write_to_logfile(self::$log_once_tag);
-                self::$log_once_tag = '';
-            }
-            $this->write_to_logfile($query);
-        }
+        $this->chaining_before($query);
 
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($query);
-            echo $this->debugLoadDeps();
-        }
+        if( !$this->real_query($query) )
+            return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $this->real_query($query);
         $result = new mysqli_result($this);
         if ($return === 0) {
             $row = $result->fetch_row();
@@ -365,7 +532,6 @@ class Mysqli2 extends mysqli
             return $row;
         }
     }
-
 
     public function generateRandomString($length = 10) {
         $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -387,13 +553,12 @@ class Mysqli2 extends mysqli
                 $affected_rows+=$this->affected_rows;
             } while( $this->more_results() && $this->next_result() );
         }
-        if( $this->error ){
-            echo "SQL Error:<br>" . $this->error;
-        }
+
+        if( $this->error )
+            return $this->process_error($this->error, $multi_query, $this->errno, '', __METHOD__);
 
         return $affected_rows;
     }
-
 
 
     /**
@@ -448,23 +613,11 @@ class Mysqli2 extends mysqli
         WHERE table_schema = '" . self::$options['dbname'] . "' 
         AND table_name = '" . $table_name . "'";
 
-        if (self::$log_once) {
-            self::$log_once = false;
-            if (!empty(self::$log_once_tag)) {
-                $this->write_to_logfile(self::$log_once_tag);
-                self::$log_once_tag = '';
-            }
-            $this->write_to_logfile($query);
-        }
+        $this->chaining_before($query);
 
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($query);
-            echo $this->debugLoadDeps();
-        }
+        if( !$this->real_query($query) )
+            return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $this->real_query($query);
         $result = new mysqli_result($this);
         $row = $result->fetch_row();
         if (!$row[0]) {
@@ -481,23 +634,11 @@ class Mysqli2 extends mysqli
     {
         $query = 'SHOW INDEX FROM ' . $table_name . '';
 
-        if (self::$log_once) {
-            self::$log_once = false;
-            if (!empty(self::$log_once_tag)) {
-                $this->write_to_logfile(self::$log_once_tag);
-                self::$log_once_tag = '';
-            }
-            $this->write_to_logfile($query);
-        }
+        $this->chaining_before($query);
 
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($query);
-            echo $this->debugLoadDeps();
-        }
+        if( !$this->real_query($query) )
+            return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $this->real_query($query);
         $result = new mysqli_result($this);
 
         $match = false;
@@ -526,23 +667,10 @@ class Mysqli2 extends mysqli
     {
         $query = 'SHOW COLUMNS FROM `' . $table . '`';
 
-        if (self::$log_once) {
-            self::$log_once = false;
-            if (!empty(self::$log_once_tag)) {
-                $this->write_to_logfile(self::$log_once_tag);
-                self::$log_once_tag = '';
-            }
-            $this->write_to_logfile($query);
-        }
+        $this->chaining_before($query);
 
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($query);
-            echo $this->debugLoadDeps();
-        }
-
-        $this->real_query($query);
+        if( !$this->real_query($query) )
+            return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
         $result = new mysqli_result($this);
         $cols = [];
@@ -657,7 +785,7 @@ class Mysqli2 extends mysqli
      * 
      * @return void
      */
-    public function parse_col_type($needle, $full_table_reference = null)
+    public function parse_col_type($needle, $full_table_reference = null, $add_length = false)
     {
         if ($full_table_reference === null) {
             $full_table_reference = self::$array_full_columns;
@@ -698,6 +826,13 @@ class Mysqli2 extends mysqli
                 return 'datetime';
             }
         }
+        if (preg_match('/^timestamp/i', $match)) {
+            if ($this->_bool($full_table_reference[$needle]['Null'])) {
+                return 'datetimeornull';
+            } else {
+                return 'datetime';
+            }
+        }
         if (preg_match('/^date/i', $match)) {
             if ($this->_bool($full_table_reference[$needle]['Null'])) {
                 return 'dateornull';
@@ -709,10 +844,42 @@ class Mysqli2 extends mysqli
             if ($this->_bool($full_table_reference[$needle]['Null'])) {
                 return 'ornull';
             } else {
-                return 'str';
+
+                
+                if( $add_length ){
+
+                    if( $length = $this->parse_col_length( $full_table_reference[$needle] ) )
+                        return 'str:' . $length;
+                        else
+                        return 'str';
+
+                } else {
+                    return 'str';
+                }
+
             }
         }
         return 'str';
+    }
+
+    /**
+     * Parse and detect possible length of column
+     *
+     * @param array $column Array returned by MySQL FULL COLUMN for the column
+     *
+     * @return Mixed Null if no length found, or integer if found.
+     */
+    public function parse_col_length($column){
+
+        $length = null;
+
+        $string = strtolower( $column['Type'] );
+        if( substr($string, 0, 8) == 'varchar(' ){
+            $length = substr($string, 8, -1);
+        }
+
+        return $length;
+
     }
 
     /**
@@ -919,19 +1086,93 @@ class Mysqli2 extends mysqli
      *
      * @param string $the_string
      * @param string $file
+     * @param boolean $force Overrides self::$log_skip_writing
      * 
      * @return void
      */
-    public function write_to_logfile($the_string, $file = 'sqllog')
+    public function write_to_logfile($the_string, $file = null, $force = false)
     {
-        if (file_exists(self::$logfile_folder_path . '/' . $file . '.log')) {
-            if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.log', 'a+')) {
-                fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
-                fclose($fh);
+
+        if( $file === null )
+            $file = 'sqllog';
+
+        if (!$force and self::$log_skip_writing) {
+            //self::$log_skip_writing = false;
+        } else {
+            if (self::$logfile_folder_path !== null) {
+                if (file_exists(self::$logfile_folder_path . '/' . $file . '.log')) {
+                    if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.log', 'a+')) {
+                        fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
+                        fclose($fh);
+                    }
+                }
+
+                $querystart = substr(trim(substr($the_string, 0, 15)), 0, 6);
+
+                if( strtoupper($querystart) == strtoupper('UPDATE') ){
+                    if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.UPDATE.log', 'a+')) {
+                        fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
+                        fclose($fh);
+                    }
+                }
+
+                if( strtoupper($querystart) == strtoupper('INSERT') ){
+                    if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.INSERT.log', 'a+')) {
+                        fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
+                        fclose($fh);
+                    }
+                }
+
                 return(true);
+
             }
         }
     }
+
+
+    /**
+     * Quick string edit for log write for prepared statements
+     * 
+     * IN: isis
+     *
+     * OUT: Array(
+     *     [0] => i,
+     *     [1] => s,
+     *     [2] => i,
+     *     [3] => s
+     * )
+     */
+    public function prettyprint_types($string)
+    {
+
+        $lines = str_split(trim($string),1);
+        if(count($lines) == 1 and $lines[0] == '')
+            return $string;
+
+        $_lines = explode("\n", print_r($lines, true));
+        $max_x = count($_lines);
+
+        $out = '';
+        for ($x = 0; $x < $max_x; $x++) {
+            $line = trim($_lines[$x]);
+
+            if( ($x + 1) < $max_x ){
+                $next = trim($_lines[($x + 1)]);
+            } else {
+                $next = '';
+            }
+
+            if( (strpos($line, '=>') !== false) and ($next != ')') )
+                $line .= ', ';
+
+            $out .= $line;
+
+        }
+
+        //logfile('OUT:' . "Array\n(\n    " . substr($out,6, -1) . "\n)");
+        return "Array\n(\n    " . substr($out,6, -1) . "\n)";
+    }
+
 
     /**
      * Run a prepared statment, results as associated array. Supports multi-query.
@@ -960,21 +1201,7 @@ class Mysqli2 extends mysqli
             list($sql, $typeDef, $params) = $sql;
         }
 
-        if (self::$log_once) {
-            self::$log_once = false;
-            if (!empty(self::$log_once_tag)) {
-                $this->write_to_logfile(self::$log_once_tag);
-                self::$log_once_tag = '';
-            }
-            $this->write_to_logfile($sql);
-        }
-
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($sql);
-            echo $this->debugLoadDeps();
-        }
+        $this->chaining_before($sql, $typeDef, $params);
 
         if($stmt = mysqli_prepare($link, $sql)){
             if(count($params) == count($params, 1)){
@@ -1051,13 +1278,19 @@ class Mysqli2 extends mysqli
      * $variables = [$id];
      * $mysqli->prepared_query($sql, $typ, $variables);
      *
+     * $sql = "SELECT * FROM table WHERE id=?";
+     * $typ = "i";
+     * $variables = [$id];
+     * $mysqli->prepared_query($sql, $typ, $variables, 'g:id'); // same as GROUP BY id
+     *
      * @param string $sql The query, as a string.
      * @param string $types A string that contains one or more characters which specify the types for the corresponding bind variables.
      * @param array $variables The number of variables and length of string types must match the parameters in the statement.
+     * @param string $results_processing Compability function for SQL5
      * 
      * @return Associated array from result set.
      */
-    public function prepared_query($sql, $types = false, $variables = false)
+    public function prepared_query($sql, $types = false, $variables = false, $results_processing = '')
     {
         $result = [];
 
@@ -1065,27 +1298,12 @@ class Mysqli2 extends mysqli
             list($sql, $types, $variables) = $sql;
         }
 
-        if (self::$log_once) {
-            self::$log_once = false;
-            if (!empty(self::$log_once_tag)) {
-                $this->write_to_logfile(self::$log_once_tag);
-                self::$log_once_tag = '';
-            }
-            $this->write_to_logfile($sql);
-        }
-
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($sql);
-            echo $this->debugLoadDeps();
-        }
+        $this->chaining_before($sql, $types, $variables);
 
         $stmt = $this->prepare($sql);
-        if(!empty($stmt->errno)){
-            die("Error: " . $stmt->error);
-            return false;
-        }
+        if(!empty($stmt->errno))
+            return $this->process_error($stmt->error, $sql, $stmt->errno, '', __METHOD__);
+
         // i-nteger, d-ouble, s-tring, b.lob
 
         if( $types !== false and $variables !== false ){
@@ -1093,9 +1311,8 @@ class Mysqli2 extends mysqli
             call_user_func_array([$stmt, 'bind_param'], $this->refValues($variables));
         }
 
-        if( !$stmt->execute() ){
-            printf("Error: %s.\n", $stmt->error);
-        }
+        if( !$stmt->execute() )
+            return $this->process_error($stmt->error, $sql, $stmt->errno, '', __METHOD__);
 
         // If it's a DELETE we do not need more and close here
         if( strtoupper(substr($sql, 0, 12)) == 'DELETE FROM ' )
@@ -1114,12 +1331,32 @@ class Mysqli2 extends mysqli
 
         call_user_func_array([$stmt, 'bind_result'], $params);
 
+
+        $flatten_key = false;
+        $flattened_already = [];
+        if( (substr($results_processing,0,2) == 'f:') or (substr($results_processing,0,2) == 'g:') ){
+            $flatten_key = substr($results_processing,2);
+        } else if( substr($results_processing,0,8) == 'flatten:' ){
+            $flatten_key = substr($results_processing,8);
+        } else if( substr($results_processing,0,6) == 'group:' ){
+            $flatten_key = substr($results_processing,6);
+        }
+
         while ($stmt->fetch()) {
             foreach($row as $key => $val)
             {
                 $c[$key] = $val;
             }
-            $result[] = $c;
+
+            if ($flatten_key !== false and isset($c[$flatten_key]) and !in_array($c[$flatten_key], $flattened_already)) {
+                $result[] = $c;
+                $flattened_already[] = $c[$flatten_key];
+            } else if ($flatten_key !== false and isset($c[$flatten_key]) and in_array($c[$flatten_key], $flattened_already)) {
+                $flattened_already[] = $c[$flatten_key];
+            } else {
+                $result[] = $c;
+            }
+
         }
         
         $stmt->close();
@@ -1127,6 +1364,20 @@ class Mysqli2 extends mysqli
         return $result;
     }
 
+    /**
+     * Short Query version when expecting 1 row of results
+     *
+     * $return modes: 0         Returns the first value from result set directly as value
+     *                true      Returns NULL if query results in empty results
+     *               'default'  Returns the result row as associated array
+     * 
+     * @param string $sql The SQL query, perpared format
+     * @param array $types String defining the variable types
+     * @param array $variables Array of the variables from $types and in the SQL query
+     * @param string $return Different ways of returning the results, and how to handle zero results.
+     *
+     * @return mixed Depending on $return
+     */
     public function prepared_query1($sql, $types = false, $variables = false, $return = 'default')
     {
 
@@ -1137,12 +1388,18 @@ class Mysqli2 extends mysqli
             unset($_variables);
         }
 
+        $this->chaining_before($sql, $types, $variables);
+
         $res = $this->prepared_query($sql, $types, $variables);
 
         if($return === 0){
             return array_shift($res[0]);
-        } else {
+        } else if( $return === true ){
+            if( empty($res) )
+                return null;
             return $res[0];
+        } else {
+            return $res;
         }
 
     }
@@ -1171,11 +1428,11 @@ class Mysqli2 extends mysqli
             list($sql, $types, $variables) = $sql;
         }
 
+        $this->chaining_before($sql, $types, $variables);
+
         $stmt = $this->prepare($sql);
-        if(!empty($stmt->errno)){
-            die("Error: " . $stmt->error);
-            return false;
-        }
+        if(!empty($stmt->errno))
+            return $this->process_error($stmt->error, $sql, $stmt->errno, '', __METHOD__);
 
         if( $types !== false and $variables !== false ){
             array_unshift($variables, $types);
@@ -1183,8 +1440,10 @@ class Mysqli2 extends mysqli
         }
 
         if( !$stmt->execute() ){
-            echo mysqli_stmt_error($stmt);
-            return false;
+
+            $this->error_message = mysqli_stmt_error($stmt);
+            return $this->process_error($this->error_message, $sql, '', '', __METHOD__);
+
         } else {
             $insert_id = $stmt->insert_id;
             if( !$insert_id )
@@ -1210,6 +1469,98 @@ class Mysqli2 extends mysqli
         }
         return $refs;
     }
+
+    /**
+     * When using prepared statments and DELETE
+     *
+     * @param [type] $sql The query, eks. DELETE FROM table WHERE id=? AND cid=? AND firstname=? 
+     * @param [type] $types The type declaration, eks. iis
+     * @param [type] $vars Array with the variables declared as types, eks [$id,$cid,$name]
+     *
+     * @return int Returns deleted rows reported by Mysqli driver
+     */
+    function prepared_delete($sql, $types, $vars){
+
+        $this->chaining_before($sql, $types, $vars);
+
+        $stmt = $this->prepare($sql);
+        // prepare() can fail because of syntax errors, missing privileges, ....
+        if ( false === $stmt ) {
+            // and since all the following operations need a valid/ready statement object
+            // it doesn't make sense to go on
+            // you might want to use a more sophisticated mechanism than die()
+            // but's it's only an example
+            die('prepare() failed: ' . htmlspecialchars($mysqli->error));
+        }
+
+        $rc = $stmt->bind_param($types, ...$vars);
+        // bind_param() can fail because the number of parameter doesn't match the placeholders in the statement
+        // or there's a type conflict(?), or ....
+        if ( false === $rc ) {
+            // again execute() is useless if you can't bind the parameters. Bail out somehow.
+            die('bind_param() failed: ' . htmlspecialchars($stmt->error));
+        }
+
+        $rc = $stmt->execute();
+        // execute() can fail for various reasons. And may it be as stupid as someone tripping over the network cable
+        // 2006 "server gone away" is always an option
+        if ( false === $rc ) {
+            die('execute() failed: ' . htmlspecialchars($stmt->error));
+        }
+
+        $affected_rows = $stmt->affected_rows;
+        $stmt->close();
+        return $affected_rows;
+
+    }
+
+
+    /**
+     * Return the error_message from temp variable
+     */
+    public function error_message(){
+        return $this->error_message;
+    }
+
+    /**
+     * Quick templater for $sqlbuddy markup
+     *
+     * @param string $table The table to layout all columns for
+     * @param string $type What type of markup you need
+     *
+     * @return string Valid PHP code to use
+     */
+    public function buddy($table, $type='insert'){
+
+        $cols = $this->return_full_columns( $table );
+
+        $nts = [];
+        $n_x = 0;
+        $t_x = 0;
+        foreach ($cols as $ColID=>$col){
+            $n = $ColID;
+            $t = $this->parse_col_type($ColID, $cols, true);
+            if(strlen($n) > $n_x) $n_x = strlen($n) + 3;
+            if(strlen($t) > $t_x) $t_x = strlen($t) + 1;
+            $nts[] = [$n, $t];
+            //$tpl .= '$sql->que(\'' . $ColID . '\', \'\', \'' . $this->parse_col_type($ColID, $cols, true) . '\');' . "\n";
+        }
+
+        $tpl = '    $sql = new sqlbuddy;' . "\n";
+        foreach($nts as $d){
+            //$tpl .= '    $sql->que(' . str_pad('\'' . $d[0] . '\',', $n_x) . ' \'\', ' . str_pad('\'' . $d[1] . '\'', $t_x) . ');' . "\n";
+            $tpl .= '    $sql->que(' . str_pad('\'' . $d[0] . '\',', $n_x) . ' \'\', ' . '\'' . $d[1] . '\');' . "\n";
+        }
+        $tpl .= '    // update formula ' . "\n";
+        $tpl .= '    $mysqli->query( $sql->build(\'update\', \'' . $table . '\', \'id=\' . $id) );' . "\n";
+        $tpl .= '    // or insert formula' . "\n";
+        $tpl .= '    $mysqli->query( $sql->build(\'insert\', \'' . $table . '\') );' . "\n";
+        $tpl .= '    $id = $mysqli->insert_id;' . "\n";
+
+        return $tpl;
+    }
+
+
 
     /**
      * Dependencies loader when using debug functions, adds required CSS and JS.
@@ -1520,7 +1871,7 @@ class Mysqli2 extends mysqli
 
             $html .= '<pre style="margin-top: -0.9em;"><code class="php">';
             $html .= htmlentities('$pre = $no; echo "lk";') . "\n";
-            $html .= 'Error: ' . $this->errno . '<br>' . $e->__toString();
+            $html .= 'Error 4: ' . $this->errno . '<br>' . $e->__toString();
             $html .= '</code></pre>';
             return $html;
 
