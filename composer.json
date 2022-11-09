@@ -33,15 +33,15 @@
         "squizlabs/php_codesniffer": "*",
         "steinhaug/sqlbuddy": "*",
         "steinhaug/uarpc": "*"
-    }
+    },
     "autoload": {
-        "psr-0": {
-            "mysqli": "www/"
+        "psr-4": {
+            "steinhaug\\mysqli\\": "src/"
         }
     },
     "autoload-dev": {
-        "psr-0": {
-            "testmysqli": "test/"
+        "psr-4": {
+            "steinhaug\\mysqli\\": "tests/"
         }
     }
 }
