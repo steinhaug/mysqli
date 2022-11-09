@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.3.2
+ * Mysqli Abstraction Layer v1.4.2
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -47,7 +47,7 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.3';
+    private $version = '1.4.2';
 
     protected static $instance;
     protected static $options = [];
@@ -60,8 +60,11 @@ class Mysqli2 extends mysqli
     protected static $log_once_tag = '';
 
     protected static $echo_once = false;
-    protected static $echo_once_pre  = '<pre><code class="sql">';
+    protected static $echo_once_b = false;
+    protected static $echo_once_pre  = '<pre class=""><code class="sql">';
     protected static $echo_once_post = '</code></pre>';
+    // null = not loaded, true = loading, false = already loaded ignore
+    protected static $echo_load_dependencies = null;
 
     protected static $query_exporter_settings = [];
     protected static $array_full_columns = null;
@@ -176,6 +179,7 @@ class Mysqli2 extends mysqli
      * Chain-filter for query() funksjon, preprocessing av spørringen
      *
      * Mulige $param1 :
+     *      assoc: resultatsettet returnert som en associative array 
      *      array: resultatsettet returnert som en array
      *      array, 'int': resultatsettet er bare tall
      *      array, '[int]': resultatsettet er en array med tallet
@@ -194,7 +198,8 @@ class Mysqli2 extends mysqli
      */
     public function echo()
     {
-        self::$echo_once = true;
+        self::$echo_once   = true;
+        self::$echo_once_b = true;
         return $this;
     }
 
@@ -220,9 +225,10 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($query);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($query);
+            if (self::$echo_load_dependencies === null)
+                self::$echo_load_dependencies = true;
         }
 
         if (self::$verbose_queries) {
@@ -243,11 +249,34 @@ class Mysqli2 extends mysqli
 
         $result = new mysqli_result($this);
 
+        if (self::$echo_once_b) {
+            self::$echo_once_b = false;
+            echo $this->debugRunQuery($query);
+            if(self::$echo_load_dependencies === null)
+                self::$echo_load_dependencies = true;
+        }
+
+        // Finalize ->echo() logic and output dependencies and javascript 
+        if (self::$echo_load_dependencies === true) {
+            echo $this->debugLoadDeps();
+        }
+
         $result_filter = $this->result_filter;
         $this->result_filter = null;
 
         if( $result_filter !== null ){
-            if(is_array($result_filter) and ($result_filter[0] === 'array')){
+            if (is_array($result_filter) and ($result_filter[0] === 'assoc')) {
+                if($result->num_rows == 1){
+                    $new_result = $result->fetch_assoc();
+                } else {
+                    $new_result = [];
+                    if ($result->num_rows) {
+                        while ($row = $result->fetch_assoc()) {
+                            $new_result[] = $row;
+                        }
+                    }
+                }
+            } else if(is_array($result_filter) and ($result_filter[0] === 'array')){
                 $new_result = [];
                 if( $result->num_rows ){
                     while ($row = $result->fetch_row()) {
@@ -318,9 +347,9 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($query);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($query);
+            echo $this->debugLoadDeps();
         }
 
         $this->real_query($query);
@@ -336,6 +365,18 @@ class Mysqli2 extends mysqli
             return $row;
         }
     }
+
+
+    public function generateRandomString($length = 10) {
+        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+        return $randomString;
+    }
+
 
     public function insert_multi_query($multi_query){
 
@@ -418,9 +459,9 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($query);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($query);
+            echo $this->debugLoadDeps();
         }
 
         $this->real_query($query);
@@ -451,9 +492,9 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($query);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($query);
+            echo $this->debugLoadDeps();
         }
 
         $this->real_query($query);
@@ -496,9 +537,9 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($query);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($query);
+            echo $this->debugLoadDeps();
         }
 
         $this->real_query($query);
@@ -530,9 +571,11 @@ class Mysqli2 extends mysqli
     /**
      * Return working collate charsets from mysql
      *
+     * @param array $c Optional array overriding the $collate array inside function, and only if exist
+     * 
      * @return array [ charset => collate charset ]
      */
-    public function return_charset_and_collate()
+    public function return_charset_and_collate($c = [])
     {
         $collate = [
             'utf8' => 'utf8_general_ci',
@@ -554,7 +597,36 @@ class Mysqli2 extends mysqli
             }
         }
 
+        if( !empty($c['utf8']) and $this->doesCollationExist($c['utf8'])){
+            $collate['utf8'] = $c['utf8'];
+        }
+
+        if( !empty($c['utf8mb4']) and $this->doesCollationExist($c['utf8mb4'])){
+            $collate['utf8mb4'] = $c['utf8mb4'];
+        }
+
         return $collate;
+    }
+
+    /**
+     * Check if a collation charset already exists in MySQL
+     *
+     * @param [string] $collation Name of collation
+     *
+     * @return boolean True if collation charset exists and false if not found
+     */
+    public function doesCollationExist($collation)
+    {
+        $this->real_query("SHOW COLLATION LIKE '" . $collation . "'");
+        $res = new mysqli_result($this);
+
+        while ($row = $res->fetch_array(MYSQLI_ASSOC)) {
+            if (in_array($row['Collation'], [$collation])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -899,9 +971,9 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($sql, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($sql);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($sql);
+            echo $this->debugLoadDeps();
         }
 
         if($stmt = mysqli_prepare($link, $sql)){
@@ -970,7 +1042,9 @@ class Mysqli2 extends mysqli
     }
 
     /**
-     * Run a prepared statment, results as associated array
+     * Run a prepared SELECT or DELETE statment.
+     * 
+     * Returns SELECT results as associated array or DELETE affected_rows
      *
      * $sql = "SELECT * FROM table WHERE id=?";
      * $typ = "i";
@@ -1002,12 +1076,16 @@ class Mysqli2 extends mysqli
 
         if (self::$echo_once) {
             self::$echo_once = false;
-            echo self::$echo_once_pre . htmlentities($sql, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-            echo $this->highlighterLibrary();
-            echo $this->debugTheQuery($sql);
+            echo $this->debugPrintQuery($query);
+            echo $this->debugExplainQuery($sql);
+            echo $this->debugLoadDeps();
         }
 
         $stmt = $this->prepare($sql);
+        if(!empty($stmt->errno)){
+            die("Error: " . $stmt->error);
+            return false;
+        }
         // i-nteger, d-ouble, s-tring, b.lob
 
         if( $types !== false and $variables !== false ){
@@ -1017,6 +1095,14 @@ class Mysqli2 extends mysqli
 
         if( !$stmt->execute() ){
             printf("Error: %s.\n", $stmt->error);
+        }
+
+        // If it's a DELETE we do not need more and close here
+        if( strtoupper(substr($sql, 0, 12)) == 'DELETE FROM ' )
+        {
+            $ret = $stmt->affected_rows;
+            $stmt->close();
+            return $ret;
         }
 
         // Make sure result set becomes associated array
@@ -1041,7 +1127,7 @@ class Mysqli2 extends mysqli
         return $result;
     }
 
-    public function prepared_query1($sql, $types = false, $variables = false)
+    public function prepared_query1($sql, $types = false, $variables = false, $return = 'default')
     {
 
         if( (strlen($types) == 1) and !is_array($variables) ){
@@ -1052,7 +1138,13 @@ class Mysqli2 extends mysqli
         }
 
         $res = $this->prepared_query($sql, $types, $variables);
-        return $res[0];
+
+        if($return === 0){
+            return array_shift($res[0]);
+        } else {
+            return $res[0];
+        }
+
     }
 
     /**
@@ -1080,6 +1172,10 @@ class Mysqli2 extends mysqli
         }
 
         $stmt = $this->prepare($sql);
+        if(!empty($stmt->errno)){
+            die("Error: " . $stmt->error);
+            return false;
+        }
 
         if( $types !== false and $variables !== false ){
             array_unshift($variables, $types);
@@ -1090,9 +1186,11 @@ class Mysqli2 extends mysqli
             echo mysqli_stmt_error($stmt);
             return false;
         } else {
-            $affected_rows = $stmt->affected_rows;
+            $insert_id = $stmt->insert_id;
+            if( !$insert_id )
+                $insert_id = $stmt->affected_rows;
             $stmt->close();
-            return $affected_rows;
+            return $insert_id;
         }
 
     }
@@ -1113,21 +1211,211 @@ class Mysqli2 extends mysqli
         return $refs;
     }
 
-
     /**
-     * Required code for loading and initializing highlight.js library, requires jQuery for document ready init.
+     * Dependencies loader when using debug functions, adds required CSS and JS.
      *
      * @return HTML markup to be included in page
      */
-    public function highlighterLibrary()
+    public function debugLoadDeps()
     {
-            $highlight_init_snippet = "
-            $(document).ready(function(){
-                document.querySelectorAll('pre code').forEach(function (block) {
-                    hljs.highlightBlock(block);
-                });
-            });
-            ";
+
+        // Already loaded no need.
+        if( self::$echo_load_dependencies === false )
+            return '';
+
+        // Make sure we dont run this twice
+        self::$echo_load_dependencies = false;
+
+            $extra_css_togglers = '<style>
+                .echo-block .white-space-trigger {
+                    display: none;
+                }
+                .echo-block {
+                    display: flex;
+                    align-items: center;
+                    flex-direction: row;
+                    align-items: stretch;
+                    background-color: #000;
+                }
+                .echo-block.one-line {
+                    white-space: normal;
+                }
+                .echo-block .white-space-trigger {
+                    background-color: #075277;
+                    position: relative;
+                    display: inline-block;
+                    width: 0.5em;
+                }
+                .echo-block.one-line .white-space-trigger {
+                    background-color: #0092da;
+                    width: 1em;
+                }
+                .echo-block .white-space-trigger span {
+                    display: none;
+                }
+                .echo-block .white-space-trigger:hover {
+                    cursor: hand;
+                }
+
+                .echo-block.one-line .white-space-trigger:hover span {
+                    box-sizing: border-box;
+                    position: absolute;
+                    display: block;
+                    width: 150px;
+                    height: 100%;
+                    padding: 5px 15px;
+                    z-index: 100;
+                    color: #fff;
+                    background-color: #0092da;
+                    top: 0;
+                    left: 10px;
+                    opacity: 0.9;
+                }
+
+                .styled-table {
+                    border-collapse: collapse;
+                    font-size: 0.9em;
+                    font-family: sans-serif;
+                    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+                }
+                .styled-table th,
+                .styled-table td {
+                    padding: 6px 7px;
+                }
+                .styled-table thead tr {
+                    background-color: #009879;
+                    color: #ffffff;
+                    text-align: left;
+                }
+                .styled-table tbody tr {
+                    border-bottom: 1px solid #dddddd;
+                }
+                .styled-table tbody tr:nth-of-type(even) {
+                    background-color: #f3f3f3;
+                }
+                .styled-table tbody tr:last-of-type {
+                    border-bottom: 2px solid #009879;
+                }
+                .styled-table tbody tr:hover {
+                    background-color: #f0f0f0;
+                }
+                .styled-table.collapsed-view thead {
+                    display: none;
+                }
+                .styled-table tbody tr {
+                    display: table-row;
+                }
+                .styled-table.collapsed-view tbody tr {
+                    display: none;
+                }
+                .styled-table.collapsed-view tbody tr:first-of-type {
+                    display: table-row;
+                }
+                .styled-table tbody .toggler {
+                    text-align: center;
+                }
+                .styled-table tbody .toggler msg1 {
+                    display: block;
+                }
+                .styled-table tbody .toggler msg2 {
+                    display: none;
+                }
+                .styled-table.collapsed-view tbody .toggler msg1 {
+                    display: none;
+                }
+                .styled-table.collapsed-view tbody .toggler msg2 {
+                    display: block;
+                }
+                .styled-table tbody tr.toggler {
+                    text-align: center;
+                    border-top: 2px solid #fff;
+                    border-bottom: 2px solid #fff;
+                    background-color: #fff;
+                    color: #000;
+                    font-weight: bold;
+                }
+                .styled-table tbody tr.toggler:hover {
+                    background-color: #3488f5;
+                    color: #fff;
+                    cursor: hand;
+                }
+                .styled-table tbody tr.toggler td {
+                    padding: 0;
+                    font-size: 10px;
+                    line-height: 15px;
+                }
+                .styled-table.collapsed-view tbody tr.toggler td {
+                    padding: 4px 16px;
+                    border-radius: 10px;
+                }
+                .styled-table.collapsed-view tbody tr.toggler {
+                    background-color: #3488f5;
+                    color: #fff;
+                }
+                .styled-table.collapsed-view tbody tr.toggler:hover {
+                    background-color: #fff;
+                    color: #3488f5;
+                }
+                .styled-table .ignoring td {
+                    text-align: center;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+            </style>';
+
+            $highlight_init_snippet = '
+                !function(c,a){"undefined"!=typeof module?module.exports=a():"function"==typeof define&&"object"==typeof define.g?define(a):this[c]=a()}("domready",function(){var c=[],a,b="object"===typeof document&&document,f=b&&b.documentElement.doScroll,d=b&&(f?/^loaded|^c/:/^loaded|^i|^c/).test(b.readyState);!d&&b&&b.addEventListener("DOMContentLoaded",a=function(){b.removeEventListener("DOMContentLoaded",a);for(d=1;a=c.shift();)a()});return function(e){d?setTimeout(e,0):c.push(e)}});
+                domready(function () {
+                    document.querySelectorAll(\'pre code\').forEach(function (block) {
+                        hljs.highlightBlock(block);
+                    });
+                })
+            ';
+
+            $toggler_func = '
+                const triggers = Array.from(document.querySelectorAll(\'[data-toggle="toggler"]\'));
+
+                window.addEventListener(\'click\', (ev) => {
+                    let elm = ev.target;
+
+                    // Special case code needed to detect clicks from thead or th, 
+                    // bubbling selects the td as trigger
+                    if (!elm.hasAttribute("data-target")){ // Needed for thead tr th bubbling
+                        elm = elm.parentNode;
+                        if (typeof elm.hasAttribute == "function" && !elm.hasAttribute("data-target")){
+                            elm = elm.parentNode;
+                            if (typeof elm.hasAttribute == "function" && !elm.hasAttribute("data-target")){
+                                console.log("mysqli->debugLoadDeps: $toggler_func -> Aborting as we are not on a trigger.");
+                                return;
+                            }
+                        }
+                        if (typeof elm.getAttribute !== \'function\'){
+                            return;
+                        }
+                        const selector = elm.getAttribute(\'data-target\');
+                        togglerFunc(selector, \'toggle\');
+                    }
+
+                    if( elm.hasAttribute("data-target") && elm.hasAttribute("data-class") ){
+                        const className = elm.getAttribute("data-class");
+                        const selector = elm.getAttribute("data-target");
+                        togglerFunc(selector, className);
+                    }
+
+                    //if (triggers.includes(elm)) {
+                    //    const selector = elm.getAttribute(\'data-target\');
+                    //    togglerFunc(selector, \'toggle\');
+                    //}
+
+                }, false);
+
+                const togglerFunc = (selector, cmd) => {
+                    const targets = Array.from(document.querySelectorAll(selector));
+                    targets.forEach(target => {
+                        target.classList.toggle(cmd);
+                    });
+                }
+            ';
 
             $themes = [
                 'atelier-sulphurpool-dark',
@@ -1142,10 +1430,42 @@ class Mysqli2 extends mysqli
             ];
 
             return js_and_css_include([
-                '/inc/libs/highlight/js/v10.1.1.barebones.js',  // json, js, apache, xml, php, css, sql
-                '/inc/libs/highlight/css/' . $themes[4] . '.css',
-                $highlight_init_snippet
-            ], 1);
+                '/dist/vendor/highlight/js/v10.1.1.barebones.js',  // json, js, apache, xml, php, css, sql
+                '/dist/vendor/highlight/css/' . $themes[4] . '.css',
+                $highlight_init_snippet,
+                $toggler_func
+            ], 1) . $extra_css_togglers;
+    }
+
+
+    /**
+     * Output the SQL-Query inside a pre/code block with collapse / expand
+     *
+     * @param string $query The SQL query
+     *
+     * @return string HTML markup for the verbosed SQL-Query
+     */
+    public function debugPrintQuery($query)
+    {
+        $html = '';
+
+        if( strpos($query, "\n") !== false ){
+
+            $cssid = $this->generateRandomString();
+            $html .= '<pre class="' . $cssid . ' echo-block one-line"><div class="white-space-trigger" data-toggle="toggler" data-class="one-line" data-target=".' . $cssid . '"><span>Utvid SQL slik den ble mottatt</span></div>';
+            $html .= '<code class="sql">';
+            $html .= htmlentities($query, ENT_QUOTES, "UTF-8");
+            $html .= '</code>';
+            $html .= '</pre>';
+
+        } else {
+
+            $html .= self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
+
+        }
+
+        return $html;
+
     }
 
     /**
@@ -1155,7 +1475,7 @@ class Mysqli2 extends mysqli
      * 
      * @return The markup for the debug data
      */
-    public function debugTheQuery($query)
+    public function debugExplainQuery($query)
     {
 
         $html = '';
@@ -1214,6 +1534,58 @@ class Mysqli2 extends mysqli
 
 
     /**
+     * Display the results of the query in a collapsed table
+     *
+     * @param string $query The SQL-query
+     *
+     * @return string HTML markup for the table
+     */
+    public function debugRunQuery($query){
+
+        $html = '';
+
+        $once_results = $this->query($query);
+        $once_fields = $once_results->fetch_fields();
+
+        $cssid = $this->generateRandomString();
+
+        $html .= '<table class="' . $cssid . ' styled-table collapsed-view" style="margin-top: -1em;">';
+        $html .= '<thead>';
+        $html .= '<tr>';
+        foreach($once_fields as $_field){
+            $html .= '<th>';
+            $html .= $_field->name;
+            $html .= '</th>';
+        }
+        $html .= '</tr></thead>';
+        $html .= '<tbody>';
+
+        $html .= '<tr class="toggler" data-toggle="toggler" data-class="collapsed-view" data-target=".' . $cssid . '"><td colspan="' . $once_results->field_count . '"><msg1>SKJUL DATA</msg1><msg2>KLIKK FOR Å SE DATA</msg2></td></tr>';
+
+        $_row_count = 0;
+        while ($_row = $once_results->fetch_row()) {
+            $html .= '<tr>';
+            foreach ($_row as $__row) {
+                $html .= '<td>' . $__row . '</td>';
+            }
+            $html .= '</tr>';
+
+            $_row_count++;
+            if( $_row_count > 50 ){
+                $html .= '<tr class="ignoring"><td colspan="' . $once_results->field_count . '"> ... ignoring rest of rows after 50 ...</td></tr>';
+                break;
+            }
+
+        }
+
+        $html .= '</tbody>';
+        $html .= '</table>';
+
+        return $html;
+
+    }
+
+    /**
     * True False Boolean converter
     * 
     * There are several ways to express a true false switch, it could be 0 and 1 just as on and off. Even
@@ -1269,4 +1641,3 @@ class Mysqli2 extends mysqli
     }
 
 }
-
