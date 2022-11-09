@@ -35,13 +35,8 @@
         "steinhaug/uarpc": "*"
     },
     "autoload": {
-        "psr-4": {
-            "steinhaug\\mysqli\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "steinhaug\\mysqli\\": "tests/"
-        }
+        "classmap": [
+            "src"
+        ]
     }
 }
