@@ -1,0 +1,47 @@
+{
+    "name": "steinhaug/mysqli",
+    "description": "Mysqli Abstraction Layer",
+    "keywords": ["mysqli","prepared statments","database"],
+    "homepage": "https://gitlab.com/steinhaug/mysqli",
+    "type": "library",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Kim Steinhaug",
+            "email": "kim@steinhaug.com",
+            "homepage": "http://kim.steinhaug.com",
+            "role": "developer"
+        }
+    ],
+    "support": {
+        "email": "steinhaug@gmail.com",
+        "source": "https://gitlab.com/steinhaug/mysqli",
+        "docs": "https://gitlab.com/steinhaug/mysqli/-/wikis/home",
+        "issues": "https://gitlab.com/steinhaug/mysqli/-/issues"
+    },
+    "funding": [
+        {
+            "type": "Suck up to the developer",
+            "url": "https://steinhaug.com/donate/"
+        }
+    ],
+    "require": {
+        "php": ">=8.0.0",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "*",
+        "steinhaug/sqlbuddy": "*",
+        "steinhaug/uarpc": "*"
+    }
+    "autoload": {
+        "psr-0": {
+            "mysqli": "www/"
+        }
+    },
+    "autoload-dev": {
+        "psr-0": {
+            "testmysqli": "test/"
+        }
+    }
+}

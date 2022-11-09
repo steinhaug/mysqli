@@ -1,0 +1,33 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+    ],
+    "settings": {
+        "editor.detectIndentation": false,
+        "editor.fontFamily": "Fira Code, Consolas, 'Courier New', monospace",
+        //"phpcs.executablePath": "./vendor/bin/phpcs",
+        "workbench.colorCustomizations": {
+            "activityBar.activeBackground": "#7d763f",
+            "activityBar.activeBorder": "#80bfb8",
+            "activityBar.background": "#7d763f",
+            "activityBar.foreground": "#e7e7e7",
+            "activityBar.inactiveForeground": "#e7e7e799",
+            "activityBarBadge.background": "#80bfb8",
+            "activityBarBadge.foreground": "#15202b",
+            "sash.hoverBorder": "#7d763f",
+            "statusBar.background": "#5b562e",
+            "statusBar.foreground": "#e7e7e7",
+            "statusBarItem.hoverBackground": "#7d763f",
+            "statusBarItem.remoteBackground": "#5b562e",
+            "statusBarItem.remoteForeground": "#e7e7e7",
+            "titleBar.activeBackground": "#5b562e",
+            "titleBar.activeForeground": "#e7e7e7",
+            "titleBar.inactiveBackground": "#5b562e99",
+            "titleBar.inactiveForeground": "#e7e7e799",
+            "commandCenter.border": "#e7e7e799"
+        },
+        "peacock.color": "#5b562e"
+    }
+}
