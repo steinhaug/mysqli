@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.6.0
+ * Mysqli Abstraction Layer v1.6.1
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -49,7 +49,7 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.6.0';
+    private $version = '1.6.2';
 
     static $die_on_error = true;
 
@@ -141,7 +141,7 @@ class Mysqli2 extends mysqli
         echo '-- returned ' . count($vars) . ' variables.' . "<br>\n";
 
         echo "<br>\nGlobal logfile() test.<br>\n";
-        $logdir = 'I:/htdocs-net-work-as/steinhaug/mysqli/logs';
+        $logdir = '/logs';
         if (!empty($GLOBALS['logdir_serverPath'])) {
             $logdir = $GLOBALS['logdir_serverPath'];
         }
@@ -204,6 +204,13 @@ class Mysqli2 extends mysqli
     }
 
     /**
+     * Set die_on_error variable, for development
+     */
+    public function setDieOnError($val){
+        self::$die_on_error = $val;
+    }
+
+    /**
      * Ment for enabling the log_once feature, the next SQL query will be logged-
      *
      * Usage: $mysqli->log()->query($sql);
@@ -255,6 +262,8 @@ class Mysqli2 extends mysqli
      * Chain-filter for query() funksjon, preprocessing av spørringen
      * 
      * assoc                    returns as assoc resultset
+     *      , int=>assoc        Main array is indexed by first column in results
+     *      , int=>key::NAME    Main array is keyed by value of NAME in results
      * text, o int              returns a comma seperated list, om int er det bare denne kolonanna som er med
      * array, o valFilter       returns a resultset array
      *        'int'                 return integer
@@ -350,7 +359,6 @@ class Mysqli2 extends mysqli
         return false;
     }
 
-
     public function chaining_before($query, $multi_types = null, $muli_vars = null)
     {
         if( self::$log_what_queries == 'all' and self::$log_once === null ){
@@ -430,7 +438,8 @@ class Mysqli2 extends mysqli
      * 
      * @return Returns FALSE on failure. For successful SELECT, SHOW, DESCRIBE or EXPLAIN queries query() will return a mysqli_result object. For other successful queries query() will return TRUE.
      */
-    public function query($query, $resultmode = null)
+    #[\ReturnTypeWillChange]
+    public function query(string $query, $resultmode = MYSQLI_STORE_RESULT)
     {
 
         if( is_object($query) ){
@@ -450,18 +459,30 @@ class Mysqli2 extends mysqli
         $result_filter = $this->result_filter;
         $this->result_filter = null;
 
+
+        if( strtoupper(substr($query, 0, 11)) == 'INSERT INTO' and $result_filter !== null){
+            //echo htmlentities($query);
+            return $result;
+        }
+
         if( $result_filter !== null ){
             if (is_array($result_filter) and ($result_filter[0] === 'assoc')) {
-                //if($result->num_rows == 1){
-                //    $new_result = $result->fetch_assoc();
-                //} else {
                     $new_result = [];
                     if ($result->num_rows) {
                         while ($row = $result->fetch_assoc()) {
-                            $new_result[] = $row;
+                            $value = $row;
+                            if ($result_filter[1] === 'int=>assoc') {
+                                $_key_id = $row[array_key_first($row)];
+                                $new_result[$_key_id] = $row;
+                            } else if ( substr($result_filter[1], 0, 10) === 'int=>key::' ){
+                                $_results_key = substr($result_filter[1], 10);
+                                $_key_id = $row[$_results_key];
+                                $new_result[$_key_id] = $row;
+                            } else {
+                                $new_result[] = $row;
+                            }
                         }
                     }
-                //}
             } else if(is_array($result_filter) and ($result_filter[0] === 'text')){
                 $new_result = '';
                 if( $result->num_rows ){
@@ -493,18 +514,19 @@ class Mysqli2 extends mysqli
                         } else {
 
                             $value = $row[0];
-                            if( $result_filter[1] === 'int' )
+                            if ($result_filter[1] === 'int=>assoc') {
+                                $value = $row;
+                            }else if ($result_filter[1] === 'int'){
                                 $value = (int) $value;
-                            if( $result_filter[1] === '[int]' )
+                            } else if( $result_filter[1] === '[int]' ){
                                 $value = [ (int) $value ];
-                            if( ($result_filter[1] === 'int=>string') 
-                                or
-                                ($result_filter[1] === 'string=>string') )
+                            } else if( ($result_filter[1] === 'int=>string') or ($result_filter[1] === 'string=>string') ){
                                 $value = (string) $row[1];
+                            }
 
-                            if ( substr($result_filter[1], 0, 5) === 'int=>' ) {
+                            if ( substr($result_filter[1], 0, 5) === 'int=>' ){
                                 $new_result[ (int) $row[0] ] = $value;
-                            } else if( substr($result_filter[1], 0, 8) === 'string=>' ) {
+                            } else if( substr($result_filter[1], 0, 8) === 'string=>' ){
                                 $new_result[ (string) $row[0] ] = $value;
                             } else {
                                 $new_result[] = $value;
@@ -623,7 +645,7 @@ class Mysqli2 extends mysqli
         return $this->query1($query,0);
     }
 
-    public function prepare($query)
+    public function prepare(string $query): mysqli_stmt|false 
     {
         $stmt = new mysqli_stmt($this, $query);
         return $stmt;
@@ -792,6 +814,11 @@ class Mysqli2 extends mysqli
      */
     public function return_full_columns($table)
     {
+
+        if(!$this->table_exist($table)){
+            throw new exception('Mysqli->return_full_columns(table) error, table (' . $table . ') does not exist.', 1);
+        }
+
         $table_data = [];
         $this->real_query('SHOW FULL COLUMNS FROM `' . $table . '`');
         $res = new mysqli_result($this);
@@ -853,59 +880,57 @@ class Mysqli2 extends mysqli
         }
 
         $match = $full_table_reference[$needle]['Type'];
-        if (preg_match('/^int/i', $match)) {
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
+        if(preg_match("/^int/i",(string) $match)){
+            if($this->_bool($full_table_reference[$needle]['Null'])){
                 return 'intornull';
             } else {
                 return 'int';
             }
         }
-        if (preg_match('/^smallint/i', $match)) {
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
+        if(preg_match("/^smallint/i",(string) $match)){
+            if($this->_bool($full_table_reference[$needle]['Null'])){
                 return 'intornull';
             } else {
                 return 'int';
             }
         }
-        if (preg_match('/^tinyint/i', $match)) {
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
+        if(preg_match("/^tinyint/i",(string) $match)){
+            if($this->_bool($full_table_reference[$needle]['Null'])){
                 return 'intornull';
             } else {
                 return 'int';
             }
         }
-        if (preg_match('/^decimal/i', $match)) {
+        if(preg_match("/^decimal/i",(string) $match)){
             return 'dec';
         }
-        if (preg_match('/^datetime/i', $match)) {
+        if(preg_match("/^datetime/i",(string) $match)){
+            if($this->_bool($full_table_reference[$needle]['Null'])){
+                return 'datetimeornull';
+            } else {
+                return 'datetime';
+            }
+        }
+        if (preg_match('/^timestamp/i',(string) $match)){
             if ($this->_bool($full_table_reference[$needle]['Null'])) {
                 return 'datetimeornull';
             } else {
                 return 'datetime';
             }
         }
-        if (preg_match('/^timestamp/i', $match)) {
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
-                return 'datetimeornull';
-            } else {
-                return 'datetime';
-            }
-        }
-        if (preg_match('/^date/i', $match)) {
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
+
+        if(preg_match('/^date/i',(string) $match)){
+            if($this->_bool($full_table_reference[$needle]['Null'])){
                 return 'dateornull';
             } else {
                 return 'date';
             }
         }
-        if (preg_match('/^varchar/i', $match)) {
+        if (preg_match('/^varchar/i',(string) $match)) {
             if ($this->_bool($full_table_reference[$needle]['Null'])) {
                 return 'ornull';
             } else {
-
-                
                 if( $add_length ){
-
                     if( $length = $this->parse_col_length( $full_table_reference[$needle] ) )
                         return 'str:' . $length;
                         else
@@ -1436,7 +1461,7 @@ class Mysqli2 extends mysqli
      *
      * @return mixed Depending on $return
      */
-    public function prepared_query1($sql, $types = false, $variables = false, $return = 'default')
+    public function prepared_query1($sql, $types = false, $variables = false, $return = 'default', $onEmpty=null)
     {
 
         if( (strlen($types) == 1) and !is_array($variables) ){
@@ -1449,6 +1474,13 @@ class Mysqli2 extends mysqli
         $this->chaining_before($sql, $types, $variables);
 
         $res = $this->prepared_query($sql, $types, $variables);
+
+        if( !count($res)){
+            if($onEmpty === null)
+                return null;
+                else
+                throw new exception('prepared_query1 should return results, came up empty!', 1);
+        }
 
         if($return === 0){
             return array_shift($res[0]);
