@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.6.1
+ * Mysqli Abstraction Layer v1.6.3
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -49,7 +49,7 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.6.2';
+    private $version = '1.6.3';
 
     static $die_on_error = true;
 
@@ -471,7 +471,9 @@ class Mysqli2 extends mysqli
                     if ($result->num_rows) {
                         while ($row = $result->fetch_assoc()) {
                             $value = $row;
-                            if ($result_filter[1] === 'int=>assoc') {
+                            if( is_null($result_filter[1]) ){
+                                $new_result[] = $row;
+                            } else if ($result_filter[1] === 'int=>assoc') {
                                 $_key_id = $row[array_key_first($row)];
                                 $new_result[$_key_id] = $row;
                             } else if ( substr($result_filter[1], 0, 10) === 'int=>key::' ){

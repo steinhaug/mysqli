@@ -9,6 +9,10 @@ Maintained by: @steinhaug
 
 ## Version history
 
+### v1.6.3
+
+- Added mode for ->result('assoc') without using second parameter.
+
 ### v1.6.2
 
 - Updated for PHP 8.1  
