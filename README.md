@@ -9,6 +9,11 @@ Maintained by: @steinhaug
 
 ## Version history
 
+### v1.6.4
+
+- buddy() updated, has prepared output aswell. echo $mysqli->buddy('table','insert','prepared');
+- parse_col_type, added prepared for type
+
 ### v1.6.3
 
 - Added mode for ->result('assoc') without using second parameter.
