@@ -11,6 +11,10 @@ Maintained by: @steinhaug
 
 ### v1.6.4
 
+- Bugfix, error_number has to be int
+
+### v1.6.4
+
 - buddy() updated, has prepared output aswell. echo $mysqli->buddy('table','insert','prepared');
 - parse_col_type, added prepared for type
 

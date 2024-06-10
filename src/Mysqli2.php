@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.6.4
+ * Mysqli Abstraction Layer v1.6.5
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -354,7 +354,7 @@ class Mysqli2 extends mysqli
             exit;
         }
 
-        throw new exception($error_message, $error_number);
+        throw new exception($error_message, (int) $error_number);
 
         return false;
     }
