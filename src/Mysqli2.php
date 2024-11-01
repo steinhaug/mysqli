@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Mysqli Abstraction Layer v1.6.5
+ * Mysqli Abstraction Layer v1.6.6
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -49,7 +49,7 @@
 class Mysqli2 extends mysqli
 {
 
-    private $version = '1.6.3';
+    private $version = '1.6.6';
 
     static $die_on_error = true;
 

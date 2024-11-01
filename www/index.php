@@ -16,7 +16,22 @@ if( $mysqli->character_set_name() != 'utf8' ){
     }
 }
 
+/*
 $result = $mysqli->query('SHOW TABLES');
 while($item = $result->fetch_row()) {
     echo $item[0] . '<br>';
 }
+
+*/
+
+echo '
+    <h2>Quick menu</h2>
+    <a href="?run=tests">1. Run Mysqli tests</a><br>
+    <a href="?run=manual">2. List manual</a>
+';
+
+if( isset($_GET['run']) AND ($_GET['run']=='tests') ){
+    echo '<h2>Running mysqli-tests</h2>';
+    include 'test-mysqli.php';
+}
+
