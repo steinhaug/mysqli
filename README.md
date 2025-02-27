@@ -12,6 +12,7 @@ Mysqli Abstraction Layer v1.6.6
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [V1.7.0](#v170)
     - [v1.6.6](#v166)
     - [v1.6.5](#v165)
     - [v1.6.4](#v164)
@@ -33,6 +34,10 @@ Mainly for development and logging of queries, but now that the class is up and 
 # 2. Version History
 
 ## 2.1 Log
+
+### V1.7.0
+
+    - Breaking file into smaller files, better readability.
 
 ### v1.6.6
 
