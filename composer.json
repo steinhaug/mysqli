@@ -37,6 +37,9 @@
     "autoload": {
         "classmap": [
             "src"
-        ]
+        ],
+        "psr-4": {
+            "Steinhaug\\Mysqli\\": "src/"
+        }
     }
 }

@@ -1,7 +1,12 @@
 <?php
 
+use Steinhaug\Mysqli\Traits\QueryExporterTrait;
+use Steinhaug\Mysqli\Traits\BuddyTrait;
+use Steinhaug\Mysqli\Traits\DebuggingTrait;
+use Steinhaug\Mysqli\Traits\UtilityTrait;
+
 /**
- * Mysqli Abstraction Layer v1.6.6
+ * Mysqli Abstraction Layer v1.7.0
  *
  * Description:
  * Mainly for development and logging of queries, but now that the class is up and running
@@ -48,8 +53,12 @@
  */
 class Mysqli2 extends mysqli
 {
+    use QueryExporterTrait;
+    use BuddyTrait;
+    use DebuggingTrait;
+    use UtilityTrait;
 
-    private $version = '1.6.6';
+    private $version = '1.7.0';
 
     static $die_on_error = true;
 
@@ -172,7 +181,7 @@ class Mysqli2 extends mysqli
 
         // check if a connection established
         if (mysqli_connect_errno()) {
-            throw new exception(mysqli_connect_error(), mysqli_connect_errno());
+            throw new \exception(mysqli_connect_error(), mysqli_connect_errno());
         }
     }
 
@@ -320,7 +329,7 @@ class Mysqli2 extends mysqli
         $this->write_to_logfile('ERROR SQL: ' . $sql_query, null, true);
         $this->write_to_logfile($error_message, null, true);
 
-        $error_no = sqlError__alertAndStop((strlen($error_number)?'#' . $error_number . ', ':'') . $error_message, $sql_query, $reference);
+        $error_no = \sqlError__alertAndStop((strlen($error_number)?'#' . $error_number . ', ':'') . $error_message, $sql_query, $reference);
         if (self::$die_on_error) {
 
             if(empty($GLOBALS['dashboardLoaded'])){
@@ -354,7 +363,7 @@ class Mysqli2 extends mysqli
             exit;
         }
 
-        throw new exception($error_message, (int) $error_number);
+        throw new \exception($error_message, (int) $error_number);
 
         return false;
     }
@@ -376,7 +385,7 @@ class Mysqli2 extends mysqli
                 $this->write_to_logfile($query);
             } else {
                 $this->write_to_logfile($query . "\n" . 
-                                    line_pad(
+                                    \line_pad(
                                         $this->prettyprint_types(print_r($multi_types, true)) . "\n" .
                                         print_r($muli_vars, true)
                                             , 4)
@@ -436,14 +445,14 @@ class Mysqli2 extends mysqli
      * @param string $query The query string.
      * @param mixed $resultmode Void
      * 
-     * @return Returns FALSE on failure. For successful SELECT, SHOW, DESCRIBE or EXPLAIN queries query() will return a mysqli_result object. For other successful queries query() will return TRUE.
+     * @return Returns FALSE on failure. For successful SELECT, SHOW, DESCRIBE or EXPLAIN queries query() will return a \mysqli_result object. For other successful queries query() will return TRUE.
      */
     #[\ReturnTypeWillChange]
     public function query(string $query, $resultmode = MYSQLI_STORE_RESULT)
     {
 
         if( is_object($query) ){
-            logerror('SQL Query cannot be an object!', true, debug_backtrace(0));
+            \logerror('SQL Query cannot be an object!', true, debug_backtrace(0));
             exit;
         }
 
@@ -452,7 +461,7 @@ class Mysqli2 extends mysqli
         if (!$this->real_query($query))
             return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $result = new mysqli_result($this);
+        $result = new \mysqli_result($this);
 
         $this->chaining_after($query);
 
@@ -559,7 +568,7 @@ class Mysqli2 extends mysqli
     {
 
         if( is_object($query) ){
-            logerror('SQL Query cannot be an object!', true, debug_backtrace(0));
+            \logerror('SQL Query cannot be an object!', true, debug_backtrace(0));
             exit;
         }
 
@@ -569,7 +578,7 @@ class Mysqli2 extends mysqli
         if( !$this->real_query($query) )
             return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $result = new mysqli_result($this);
+        $result = new \mysqli_result($this);
 
         if ($return === 'insert_id') {
             return $this->insert_id;
@@ -585,15 +594,6 @@ class Mysqli2 extends mysqli
         }
     }
 
-    public function generateRandomString($length = 10) {
-        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $charactersLength = strlen($characters);
-        $randomString = '';
-        for ($i = 0; $i < $length; $i++) {
-            $randomString .= $characters[rand(0, $charactersLength - 1)];
-        }
-        return $randomString;
-    }
 
 
     public function insert_multi_query($multi_query){
@@ -622,7 +622,7 @@ class Mysqli2 extends mysqli
     {
         if ($this->get_engine($tablename) == 'MyISAM') {
             $this->real_query('SELECT COUNT(*) FROM `' . $tablename . '`');
-            $result = new mysqli_result($this);
+            $result = new \mysqli_result($this);
             $row = $result->fetch_row();
             return (int) $row[0];
         } else {
@@ -630,7 +630,7 @@ class Mysqli2 extends mysqli
             $col = array_shift($cols);
             $id = $col['Field'];
             $this->real_query('SELECT COUNT(`' . $id . '`) FROM `' . $tablename . '`');
-            $result = new mysqli_result($this);
+            $result = new \mysqli_result($this);
             $row = $result->fetch_row();
             return (int) $row[0];
         }
@@ -649,7 +649,7 @@ class Mysqli2 extends mysqli
 
     public function prepare(string $query): mysqli_stmt|false 
     {
-        $stmt = new mysqli_stmt($this, $query);
+        $stmt = new \mysqli_stmt($this, $query);
         return $stmt;
     }
 
@@ -670,7 +670,7 @@ class Mysqli2 extends mysqli
         if( !$this->real_query($query) )
             return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $result = new mysqli_result($this);
+        $result = new \mysqli_result($this);
         $row = $result->fetch_row();
         if (!$row[0]) {
             return false;
@@ -691,7 +691,7 @@ class Mysqli2 extends mysqli
         if( !$this->real_query($query) )
             return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $result = new mysqli_result($this);
+        $result = new \mysqli_result($this);
 
         $match = false;
 
@@ -724,7 +724,7 @@ class Mysqli2 extends mysqli
         if( !$this->real_query($query) )
             return $this->process_error($this->error, $query, $this->errno, '', __METHOD__);
 
-        $result = new mysqli_result($this);
+        $result = new \mysqli_result($this);
         $cols = [];
         while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
             if ($row['Field'] == $col_name) {
@@ -764,7 +764,7 @@ class Mysqli2 extends mysqli
         $_collate = $collate;
 
         $this->real_query("SHOW COLLATION LIKE 'utf8%'");
-        $res = new mysqli_result($this);
+        $res = new \mysqli_result($this);
 
         while ($row = $res->fetch_array(MYSQLI_ASSOC)) {
             if (in_array($row['Collation'], ['utf8_danish_ci', 'utf8mb4_danish_ci'])) {
@@ -798,7 +798,7 @@ class Mysqli2 extends mysqli
     public function doesCollationExist($collation)
     {
         $this->real_query("SHOW COLLATION LIKE '" . $collation . "'");
-        $res = new mysqli_result($this);
+        $res = new \mysqli_result($this);
 
         while ($row = $res->fetch_array(MYSQLI_ASSOC)) {
             if (in_array($row['Collation'], [$collation])) {
@@ -818,12 +818,12 @@ class Mysqli2 extends mysqli
     {
 
         if(!$this->table_exist($table)){
-            throw new exception('Mysqli->return_full_columns(table) error, table (' . $table . ') does not exist.', 1);
+            throw new \exception('Mysqli->return_full_columns(table) error, table (' . $table . ') does not exist.', 1);
         }
 
         $table_data = [];
         $this->real_query('SHOW FULL COLUMNS FROM `' . $table . '`');
-        $res = new mysqli_result($this);
+        $res = new \mysqli_result($this);
         $count = $res->num_rows;
         if ($count) {
             for ($i = 0;$i < $count;$i++) {
@@ -835,118 +835,69 @@ class Mysqli2 extends mysqli
     }
 
     /**
-     * Get the column data for a table, quick way for only retrieving column names
+     * Get the column data for a table with flexible return options
      *
      * @param string $table Table name
-     * @param mixed $return What to return, defaults to name and if replaced with boolean true replaces $shift_first
-     * @param boolean $shift_first array_shift the result set
+     * @param string|bool $return Return format. Options:
+     *   - 'name' (default): Returns column names as array
+     *   - 'full': Returns full column information array
+     *   - 'type': Returns column types as array
+     *   - 'nullable': Returns nullable status as array
+     *   - true: Alias for 'name' with first column shifted
+     * @param bool $shift_first Remove first column (typically primary key)
      * 
-     * @return array The results
+     * @return array Columns data based on specified return format
+     * 
+     * @example
+     *   // Get all column names
+     *   $columns = $this->return_columns('users');
+     *   // Result: ['id', 'username', 'email', ...]
+     * 
+     * @example
+     *   // Get column names without primary key
+     *   $columns = $this->return_columns('users', true);
+     *   // Result: ['username', 'email', ...]
+     * 
+     * @example
+     *   // Get full column information
+     *   $columnInfo = $this->return_columns('users', 'full');
+     *   // Result: [['Field' => 'id', 'Type' => 'int', ...], ...]
      */
-    public function return_columns($table, $return = 'name', $shift_first = false){
-
+    public function return_columns($table, $return = 'name', $shift_first = false) {
         $cols = $this->return_full_columns($table);
 
-        $data = [];
-        foreach($cols as $col){
-            $data[] = $col['Field'];
+        if( $return === true ) {
+            $return = 'name';
+            $shift_first = true;
         }
 
-        if(
-            $shift_first
-            or
-            ($return === true and $shift_first === false)
-        ){
+        // Handle different return formats
+        switch ($return) {
+            case 'name':
+                $data = array_column($cols, 'Field');
+                break;
+            case 'full':
+                $data = $cols;
+                break;
+            case 'type':
+                $data = array_column($cols, 'Type');
+                break;
+            case 'nullable':
+                $data = array_column($cols, 'Null');
+                break;
+            default:
+                throw new \InvalidArgumentException("Invalid return format: {$return}");
+        }
+
+        // Shift first column if specified
+        if (
+            $shift_first 
+            || ($return === true && $shift_first === false)
+        ) {
             array_shift($data);
         }
 
         return $data;
-    }
-
-
-    /**
-     * Simplify the type of column for further processing
-     *
-     * @param string $needle
-     * @param array $full_table_reference
-     * @param array $add_length Adds column length for str, str:20
-     * @param array $col_type default buddy, or prepared for types. (str <=> s, int <=> i, dec <=> d)
-     * 
-     * @return void
-     */
-    public function parse_col_type($needle, $full_table_reference = null, $add_length = false, $col_type='buddy')
-    {
-        if ($full_table_reference === null) {
-            $full_table_reference = self::$array_full_columns;
-            if (self::$array_full_columns === null) {
-                throw new exception('parse_col_type error, missing table reference.', 1);
-            }
-        }
-
-        $match = $full_table_reference[$needle]['Type'];
-        if(preg_match("/^int/i",(string) $match)){
-            if($this->_bool($full_table_reference[$needle]['Null'])){
-                return $col_type=='buddy'?'intornull':'i';
-            } else {
-                return $col_type=='buddy'?'int':'i';
-            }
-        }
-        if(preg_match("/^smallint/i",(string) $match)){
-            if($this->_bool($full_table_reference[$needle]['Null'])){
-                return $col_type=='buddy'?'intornull':'i';
-            } else {
-                return $col_type=='buddy'?'int':'i';
-            }
-        }
-        if(preg_match("/^tinyint/i",(string) $match)){
-            if($this->_bool($full_table_reference[$needle]['Null'])){
-                return $col_type=='buddy'?'intornull':'i';
-            } else {
-                return $col_type=='buddy'?'int':'i';
-            }
-        }
-        if(preg_match("/^decimal/i",(string) $match)){
-            return $col_type=='buddy'?'dec':'d';
-        }
-        if(preg_match("/^datetime/i",(string) $match)){
-            if($this->_bool($full_table_reference[$needle]['Null'])){
-                return $col_type=='buddy'?'datetimeornull':'s';
-            } else {
-                return $col_type=='buddy'?'datetime':'s';
-            }
-        }
-        if (preg_match('/^timestamp/i',(string) $match)){
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
-                return $col_type=='buddy'?'datetimeornull':'s';
-            } else {
-                return $col_type=='buddy'?'datetime':'s';
-            }
-        }
-
-        if(preg_match('/^date/i',(string) $match)){
-            if($this->_bool($full_table_reference[$needle]['Null'])){
-                return $col_type=='buddy'?'dateornull':'s';
-            } else {
-                return $col_type=='buddy'?'date':'s';
-            }
-        }
-        if (preg_match('/^varchar/i',(string) $match)) {
-            if ($this->_bool($full_table_reference[$needle]['Null'])) {
-                return $col_type=='buddy'?'ornull':'s';
-            } else {
-                if( $add_length ){
-                    if( $length = $this->parse_col_length( $full_table_reference[$needle] ) )
-                        return $col_type=='buddy'?'str:' . $length:'s';
-                        else
-                        return $col_type=='buddy'?'str':'s';
-
-                } else {
-                    return $col_type=='buddy'?'str':'s';
-                }
-
-            }
-        }
-        return $col_type=='buddy'?'str':'s';
     }
 
     /**
@@ -969,192 +920,6 @@ class Mysqli2 extends mysqli
 
     }
 
-    /**
-     * Init the query exporter, we need a table to get the meta from
-     *
-     * @param string $table
-     * 
-     * @return void
-     */
-    public function new_query_exporter($table)
-    {
-        self::$array_full_columns = $this->return_full_columns($table);
-        self::$query_exporter_settings = [
-            'table' => $table,
-            'query_type' => 'insert',
-            'use_column_names' => true,
-            'skip_primary_auto_increment_col' => true,
-            'extended_inserts_max' => 250
-        ];
-    }
-
-    /**
-     * Undocumented function
-     *
-     * @param array $acc_arr
-     * @param string $query_type
-     *
-     * @return void
-     */
-    public function query_exporter($acc_arr, $query_type = 'insert')
-    {
-        $sql = '';
-
-        $keys = [];
-        $vals = [];
-
-        foreach ($acc_arr as $key => $val) {
-            if (self::$query_exporter_settings['skip_primary_auto_increment_col']) {
-                if ((self::$array_full_columns[$key]['Key'] == 'PRI') and (self::$array_full_columns[$key]['Extra'] == 'auto_increment')) {
-                    continue;
-                }
-            }
-
-            $keys[] = '`' . $key . '`';
-            $vals[] = $this->qe__make_key($key, $val);
-        }
-
-        if ($query_type == 'extend') {
-            return ', (' . implode(',', $vals) . ')';
-        }
-
-        $o = 'INSERT INTO `' . self::$query_exporter_settings['table'] . '`';
-        if (self::$query_exporter_settings['use_column_names']) {
-            $o .= ' (' . implode(',', $keys) . ')';
-        }
-        $o .= ' VALUES (' . implode(',', $vals) . ')';
-
-        if ($query_type == 'insert') {
-            $o .= ';';
-        }
-
-        return $o;
-    }
-
-    /**
-     * Query_exporter: make the value for the SQL query, including possible quotes
-     *
-     * @return string SQL ready and escaped value for use in a query
-     */
-    public function qe__make_key($key, $val)
-    {
-        if (self::$array_full_columns === null) {
-            throw new exception('function qe__make_key is not initialized, you need to envoke new_query_exporter()', 1);
-        }
-
-        $str_the_key = '`' . $key . '`';
-        $type = $this->parse_col_type($key);
-        $quote_char = '\'';
-        $null_allowed = false;
-
-        if (strpos($type, 'ornull') !== false) {
-            $type = str_replace('ornull', '', $type);
-            $null_allowed = true;
-        }
-
-        if ($null_allowed and ($this->considered_null($val) or empty($val))) {
-            $str_the_value = 'NULL';
-        } else {
-            switch ($type) {
-                case 'date':
-                    $str_the_value = $quote_char . mysqli_fix_sloppydate($val, 'sql') . $quote_char;
-                    break;
-                case 'datetime':
-                    $str_the_value = $quote_char . mysqli_fix_sloppydate($val, 'sql') . ' ' . mysqli_fix_sloppydate($val, 'datetime2time') . $quote_char;
-                    break;
-                case 'dec':
-                    $str_the_value = fix_make_number($val);
-                    break;
-                case 'int':
-                    $str_the_value = (int) $val;
-                    break;
-                default:
-                    $str_the_value = $quote_char . $this->real_escape_string($val) . $quote_char;
-            }
-        }
-
-        return $str_the_value;
-    }
-
-    /**
-     * Is the value a classical NULL for the SQL
-     *
-     * @return boolean True or false
-     */
-    public function considered_null($val)
-    {
-        if ($val === false) {
-            return true;
-        }
-
-        if (!strlen($val)) {
-            return true;
-        }
-
-        if (mb_strtolower($val) === 'null') {
-            return true;
-        }
-
-        return false;
-    }
-
-
-    /**
-     * Quick function to export a table into INSERT statments.
-     *
-     * Example: $mysqli->export_tabe('tablename');
-     *          $mysqli->export_tabe('tablename 10');   <- will become a limit 0,10 ment for testing
-     * 
-     * @param string $table_name Table name to export
-     * 
-     * @return A block of text with INSERT statments.
-     */
-    public function export_table($table_name)
-    {
-
-        if(strpos($table_name, ' ')!==false){
-            $p = explode(' ', $table_name);
-            $this->real_query('SELECT * FROM `' . $p[0] . '` limit 0,' . (int) $p[1]);
-            $result = new mysqli_result($this);
-            $this->new_query_exporter($p[0]);
-        } else {
-            $this->real_query('SELECT * FROM `' . $table_name . '`');
-            $result = new mysqli_result($this);
-            $this->new_query_exporter($table_name);
-        }
-
-        $buffer = '';
-        if ($result->num_rows) {
-
-            $extended_insert_item_count = 0;
-            while($row = $result->fetch_assoc()){
-
-                if(!$extended_insert_item_count)
-                    $sql  = $this->query_exporter($row, 'extended_insert');
-                    else
-                    $sql .= $this->query_exporter($row, 'extend');
-
-                if( $extended_insert_item_count and !($extended_insert_item_count % self::$query_exporter_settings['extended_inserts_max']) ){
-                    $extended_insert_item_count = -1;
-                    $sql .= ';';
-                    $buffer .= $sql . "\n";
-                }
-
-                $extended_insert_item_count++;
-            }
-
-            if(($extended_insert_item_count > 0) and strlen($sql)){
-                $sql .= ';';
-                $buffer .= $sql . "\n";
-            }
-
-        }
-
-        return $buffer;
-
-    }
-
-
     /* alfa setup, no scheme is in effect */
     public function debug_queries($type = 'plain')
     {
@@ -1166,6 +931,13 @@ class Mysqli2 extends mysqli
     public function verbose($lv)
     {
         self::$verbose_level = $lv;
+    }
+
+    /**
+     * Return the error_message from temp variable
+     */
+    public function error_message(){
+        return $this->error_message;
     }
 
     /**
@@ -1217,49 +989,6 @@ class Mysqli2 extends mysqli
     }
 
 
-    /**
-     * Quick string edit for log write for prepared statements
-     * 
-     * IN: isis
-     *
-     * OUT: Array(
-     *     [0] => i,
-     *     [1] => s,
-     *     [2] => i,
-     *     [3] => s
-     * )
-     */
-    public function prettyprint_types($string)
-    {
-
-        $lines = str_split(trim($string),1);
-        if(count($lines) == 1 and $lines[0] == '')
-            return $string;
-
-        $_lines = explode("\n", print_r($lines, true));
-        $max_x = count($_lines);
-
-        $out = '';
-        for ($x = 0; $x < $max_x; $x++) {
-            $line = trim($_lines[$x]);
-
-            if( ($x + 1) < $max_x ){
-                $next = trim($_lines[($x + 1)]);
-            } else {
-                $next = '';
-            }
-
-            if( (strpos($line, '=>') !== false) and ($next != ')') )
-                $line .= ', ';
-
-            $out .= $line;
-
-        }
-
-        //logfile('OUT:' . "Array\n(\n    " . substr($out,6, -1) . "\n)");
-        return "Array\n(\n    " . substr($out,6, -1) . "\n)";
-    }
-
 
     /**
      * Run a prepared statment, results as associated array. Supports multi-query.
@@ -1306,7 +1035,7 @@ class Mysqli2 extends mysqli
                     $bindParamsReferences[$key] = &$bindParams[$key]; 
                 }
                 array_unshift($bindParamsReferences, $typeDef);
-                $bindParamsMethod = new ReflectionMethod('mysqli_stmt', 'bind_param');
+                $bindParamsMethod = new \ReflectionMethod('mysqli_stmt', 'bind_param');
                 $bindParamsMethod->invokeArgs($stmt, $bindParamsReferences);
             }
 
@@ -1325,7 +1054,7 @@ class Mysqli2 extends mysqli
                             $rowReferences[] = &$stmtRow[$field->name];
                         }                               
                         mysqli_free_result($resultMetaData);
-                        $bindResultMethod = new ReflectionMethod('mysqli_stmt', 'bind_result');
+                        $bindResultMethod = new \ReflectionMethod('mysqli_stmt', 'bind_result');
                         $bindResultMethod->invokeArgs($stmt, $rowReferences);
                         while(mysqli_stmt_fetch($stmt)){
                             $row = [];
@@ -1336,7 +1065,7 @@ class Mysqli2 extends mysqli
                         }
                         mysqli_stmt_free_result($stmt);
                     } else {
-                        $queryResult[] = mysqli_stmt_affected_rows($stmt);
+                        $queryResult[] = \mysqli_stmt_affected_rows($stmt);
                     }
                 } else {
                     $queryResult[] = false;
@@ -1483,7 +1212,7 @@ class Mysqli2 extends mysqli
             if($onEmpty === null)
                 return null;
                 else
-                throw new exception('prepared_query1 should return results, came up empty!', 1);
+                throw new \exception('prepared_query1 should return results, came up empty!', 1);
         }
 
         if($return === 0){
@@ -1535,7 +1264,7 @@ class Mysqli2 extends mysqli
 
         if( !$stmt->execute() ){
 
-            $this->error_message = mysqli_stmt_error($stmt);
+            $this->error_message = \mysqli_stmt_error($stmt);
             return $this->process_error($this->error_message, $sql, '', '', __METHOD__);
 
         } else {
@@ -1578,26 +1307,16 @@ class Mysqli2 extends mysqli
         $this->chaining_before($sql, $types, $vars);
 
         $stmt = $this->prepare($sql);
-        // prepare() can fail because of syntax errors, missing privileges, ....
         if ( false === $stmt ) {
-            // and since all the following operations need a valid/ready statement object
-            // it doesn't make sense to go on
-            // you might want to use a more sophisticated mechanism than die()
-            // but's it's only an example
             die('prepare() failed: ' . htmlspecialchars($mysqli->error));
         }
 
         $rc = $stmt->bind_param($types, ...$vars);
-        // bind_param() can fail because the number of parameter doesn't match the placeholders in the statement
-        // or there's a type conflict(?), or ....
         if ( false === $rc ) {
-            // again execute() is useless if you can't bind the parameters. Bail out somehow.
             die('bind_param() failed: ' . htmlspecialchars($stmt->error));
         }
 
         $rc = $stmt->execute();
-        // execute() can fail for various reasons. And may it be as stupid as someone tripping over the network cable
-        // 2006 "server gone away" is always an option
         if ( false === $rc ) {
             die('execute() failed: ' . htmlspecialchars($stmt->error));
         }
@@ -1606,526 +1325,6 @@ class Mysqli2 extends mysqli
         $stmt->close();
         return $affected_rows;
 
-    }
-
-
-    /**
-     * Return the error_message from temp variable
-     */
-    public function error_message(){
-        return $this->error_message;
-    }
-
-    /**
-     * Quick templater for $sqlbuddy markup
-     *
-     * @param string $table The table to layout all columns for
-     * @param string $type What type of markup you need
-     *
-     * @return string Valid PHP code to use
-     */
-    public function buddy($table, $type='insert', $mode='buddy'){
-
-        $cols = $this->return_full_columns( $table );
-
-        $nts = [];// $sql->que('id',            '', 'int');
-        $n_x = 0; // key width  ^^
-        $t_x = 0; // val width                       ^^^
-        foreach ($cols as $ColID=>$col){
-            $n = $ColID;
-            $t = $this->parse_col_type($ColID, $cols, true, $mode);
-            if(strlen($n) > $n_x) $n_x = strlen($n) + 3;
-            if(strlen($t) > $t_x) $t_x = strlen($t) + 1;
-            $nts[] = [$n, $t];
-        }
-
-        if( $mode == 'buddy' ){
-                $tpl = '    $sql = new sqlbuddy;' . "\n";
-                foreach($nts as $d){
-                //$tpl .= '    $sql->que(' . str_pad('\'' . $d[0] . '\',', $n_x) . ' \'\', ' . str_pad('\'' . $d[1] . '\'', $t_x) . ');' . "\n";
-                    $tpl .= '    $sql->que(' . str_pad('\'' . $d[0] . '\',', $n_x) . ' \'\', ' . '\'' . $d[1] . '\');' . "\n";
-                }
-                $tpl .= '    // update formula ' . "\n";
-                $tpl .= '    $mysqli->query( $sql->build(\'update\', \'' . $table . '\', \'id=\' . $id) );' . "\n";
-                $tpl .= '    // or insert formula' . "\n";
-                $tpl .= '    $mysqli->query( $sql->build(\'insert\', \'' . $table . '\') );' . "\n";
-                $tpl .= '    $id = $mysqli->insert_id;' . "\n";
-
-                return $tpl;
-        } else {
-
-            if($type=='update'){
-                $where_id = array_shift($nts);
-            }
-
-            foreach($nts as $d){
-                $keys[] = '`' . $d[0] . '`';
-                $vals[] = '?';
-                $vars[] = '$' . $d[0];
-                $types[] = $d[1];
-            }
-
-            if($type=='insert'){
-                $out = '
-                $sql = [
-                    "INSERT INTO `" . $db_prefix . "table_name` (' . implode(',', $keys) . ') VALUES (' . implode(',', $vals) . ')",
-                    "' . implode('', $types) . '",
-                    [' . implode(', ', $vars) . ']
-                ];
-                $inserted_id = $mysqli->prepared_insert($sql);
-                ';
-            } else if($type=='update'){
-                $out = '
-                $sql = [
-                    "UPDATE `" . $db_prefix . "table_name` SET ' . implode('=?, ', $keys) . '=? WHERE `' . $where_id[0] . '`=?",
-                    "' . implode('', $types) . 'i",
-                    [' . implode(', ', $vars) . ', $' . $where_id[0] . ']
-                ];
-                $affected_rows = $mysqli->prepared_insert($sql);
-                ';
-            } else {
-                $out = 'Error, unknown type: ' . $type;
-            }
-
-
-            return $out;
-
-
-
-        }
-
-
-    }
-
-
-
-    /**
-     * Dependencies loader when using debug functions, adds required CSS and JS.
-     *
-     * @return HTML markup to be included in page
-     */
-    public function debugLoadDeps()
-    {
-
-        // Already loaded no need.
-        if( self::$echo_load_dependencies === false )
-            return '';
-
-        // Make sure we dont run this twice
-        self::$echo_load_dependencies = false;
-
-            $extra_css_togglers = '<style>
-                .echo-block .white-space-trigger {
-                    display: none;
-                }
-                .echo-block {
-                    display: flex;
-                    align-items: center;
-                    flex-direction: row;
-                    align-items: stretch;
-                    background-color: #000;
-                }
-                .echo-block.one-line {
-                    white-space: normal;
-                }
-                .echo-block .white-space-trigger {
-                    background-color: #075277;
-                    position: relative;
-                    display: inline-block;
-                    width: 0.5em;
-                }
-                .echo-block.one-line .white-space-trigger {
-                    background-color: #0092da;
-                    width: 1em;
-                }
-                .echo-block .white-space-trigger span {
-                    display: none;
-                }
-                .echo-block .white-space-trigger:hover {
-                    cursor: hand;
-                }
-
-                .echo-block.one-line .white-space-trigger:hover span {
-                    box-sizing: border-box;
-                    position: absolute;
-                    display: block;
-                    width: 150px;
-                    height: 100%;
-                    padding: 5px 15px;
-                    z-index: 100;
-                    color: #fff;
-                    background-color: #0092da;
-                    top: 0;
-                    left: 10px;
-                    opacity: 0.9;
-                }
-
-                .styled-table {
-                    border-collapse: collapse;
-                    font-size: 0.9em;
-                    font-family: sans-serif;
-                    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
-                }
-                .styled-table th,
-                .styled-table td {
-                    padding: 6px 7px;
-                }
-                .styled-table thead tr {
-                    background-color: #009879;
-                    color: #ffffff;
-                    text-align: left;
-                }
-                .styled-table tbody tr {
-                    border-bottom: 1px solid #dddddd;
-                }
-                .styled-table tbody tr:nth-of-type(even) {
-                    background-color: #f3f3f3;
-                }
-                .styled-table tbody tr:last-of-type {
-                    border-bottom: 2px solid #009879;
-                }
-                .styled-table tbody tr:hover {
-                    background-color: #f0f0f0;
-                }
-                .styled-table.collapsed-view thead {
-                    display: none;
-                }
-                .styled-table tbody tr {
-                    display: table-row;
-                }
-                .styled-table.collapsed-view tbody tr {
-                    display: none;
-                }
-                .styled-table.collapsed-view tbody tr:first-of-type {
-                    display: table-row;
-                }
-                .styled-table tbody .toggler {
-                    text-align: center;
-                }
-                .styled-table tbody .toggler msg1 {
-                    display: block;
-                }
-                .styled-table tbody .toggler msg2 {
-                    display: none;
-                }
-                .styled-table.collapsed-view tbody .toggler msg1 {
-                    display: none;
-                }
-                .styled-table.collapsed-view tbody .toggler msg2 {
-                    display: block;
-                }
-                .styled-table tbody tr.toggler {
-                    text-align: center;
-                    border-top: 2px solid #fff;
-                    border-bottom: 2px solid #fff;
-                    background-color: #fff;
-                    color: #000;
-                    font-weight: bold;
-                }
-                .styled-table tbody tr.toggler:hover {
-                    background-color: #3488f5;
-                    color: #fff;
-                    cursor: hand;
-                }
-                .styled-table tbody tr.toggler td {
-                    padding: 0;
-                    font-size: 10px;
-                    line-height: 15px;
-                }
-                .styled-table.collapsed-view tbody tr.toggler td {
-                    padding: 4px 16px;
-                    border-radius: 10px;
-                }
-                .styled-table.collapsed-view tbody tr.toggler {
-                    background-color: #3488f5;
-                    color: #fff;
-                }
-                .styled-table.collapsed-view tbody tr.toggler:hover {
-                    background-color: #fff;
-                    color: #3488f5;
-                }
-                .styled-table .ignoring td {
-                    text-align: center;
-                    font-weight: bold;
-                    font-size: 12px;
-                }
-            </style>';
-
-            $highlight_init_snippet = '
-                !function(c,a){"undefined"!=typeof module?module.exports=a():"function"==typeof define&&"object"==typeof define.g?define(a):this[c]=a()}("domready",function(){var c=[],a,b="object"===typeof document&&document,f=b&&b.documentElement.doScroll,d=b&&(f?/^loaded|^c/:/^loaded|^i|^c/).test(b.readyState);!d&&b&&b.addEventListener("DOMContentLoaded",a=function(){b.removeEventListener("DOMContentLoaded",a);for(d=1;a=c.shift();)a()});return function(e){d?setTimeout(e,0):c.push(e)}});
-                domready(function () {
-                    document.querySelectorAll(\'pre code\').forEach(function (block) {
-                        hljs.highlightBlock(block);
-                    });
-                })
-            ';
-
-            $toggler_func = '
-                const triggers = Array.from(document.querySelectorAll(\'[data-toggle="toggler"]\'));
-
-                window.addEventListener(\'click\', (ev) => {
-                    let elm = ev.target;
-
-                    // Special case code needed to detect clicks from thead or th, 
-                    // bubbling selects the td as trigger
-                    if (!elm.hasAttribute("data-target")){ // Needed for thead tr th bubbling
-                        elm = elm.parentNode;
-                        if (typeof elm.hasAttribute == "function" && !elm.hasAttribute("data-target")){
-                            elm = elm.parentNode;
-                            if (typeof elm.hasAttribute == "function" && !elm.hasAttribute("data-target")){
-                                console.log("mysqli->debugLoadDeps: $toggler_func -> Aborting as we are not on a trigger.");
-                                return;
-                            }
-                        }
-                        if (typeof elm.getAttribute !== \'function\'){
-                            return;
-                        }
-                        const selector = elm.getAttribute(\'data-target\');
-                        togglerFunc(selector, \'toggle\');
-                    }
-
-                    if( elm.hasAttribute("data-target") && elm.hasAttribute("data-class") ){
-                        const className = elm.getAttribute("data-class");
-                        const selector = elm.getAttribute("data-target");
-                        togglerFunc(selector, className);
-                    }
-
-                    //if (triggers.includes(elm)) {
-                    //    const selector = elm.getAttribute(\'data-target\');
-                    //    togglerFunc(selector, \'toggle\');
-                    //}
-
-                }, false);
-
-                const togglerFunc = (selector, cmd) => {
-                    const targets = Array.from(document.querySelectorAll(selector));
-                    targets.forEach(target => {
-                        target.classList.toggle(cmd);
-                    });
-                }
-            ';
-
-            $themes = [
-                'atelier-sulphurpool-dark',
-                'atelier-sulphurpool-light',
-                'darcula',
-                'googlecode',
-                'ir-black',
-                'paraiso-dark',
-                'paraiso-light',
-                'routeros',
-                'xt256'
-            ];
-
-            return js_and_css_include([
-                '/dist/vendor/highlight/js/v10.1.1.barebones.js',  // json, js, apache, xml, php, css, sql
-                '/dist/vendor/highlight/css/' . $themes[4] . '.css',
-                $highlight_init_snippet,
-                $toggler_func
-            ], 1) . $extra_css_togglers;
-    }
-
-
-    /**
-     * Output the SQL-Query inside a pre/code block with collapse / expand
-     *
-     * @param string $query The SQL query
-     *
-     * @return string HTML markup for the verbosed SQL-Query
-     */
-    public function debugPrintQuery($query)
-    {
-        $html = '';
-
-        if( strpos($query, "\n") !== false ){
-
-            $cssid = $this->generateRandomString();
-            $html .= '<pre class="' . $cssid . ' echo-block one-line"><div class="white-space-trigger" data-toggle="toggler" data-class="one-line" data-target=".' . $cssid . '"><span>Utvid SQL slik den ble mottatt</span></div>';
-            $html .= '<code class="sql">';
-            $html .= htmlentities($query, ENT_QUOTES, "UTF-8");
-            $html .= '</code>';
-            $html .= '</pre>';
-
-        } else {
-
-            $html .= self::$echo_once_pre . htmlentities($query, ENT_QUOTES, "UTF-8") . self::$echo_once_post;
-
-        }
-
-        return $html;
-
-    }
-
-    /**
-     * Runs the query so that we can display some properties around the query, will also perform an explain query.
-     * 
-     * @param string @query The SQL query
-     * 
-     * @return The markup for the debug data
-     */
-    public function debugExplainQuery($query)
-    {
-
-        $html = '';
-
-        $driver = new mysqli_driver();
-        $driver->report_mode = MYSQLI_REPORT_ALL;
-        try {
-            $this->real_query($query);
-            $html .= '<pre style="margin-top: -0.9em;"><code class="php">';
-
-            if($this->errno){
-                $html .= 'Error ' . $this->errno . ', ' . $this->error . '. ';
-            }
-            $result = new mysqli_result($this);
-            $html .= 'Query results: ' . $result->num_rows . ' rows, ' . $result->field_count . ' columns pr row.';
-
-            //$row = $result->fetch_row();
-            //foreach ($result->lengths as $i => $val) {
-            //    printf("%1d,", $val);
-            //}
-
-            $explain = $this->query1('EXPLAIN ' . $query);
-            $max_col_width = [];
-            foreach($explain as $k=>$v){
-                if( strlen($k) > strlen($v) )
-                    $max_col_width[$k] = strlen($k);
-                    else
-                    $max_col_width[$k] = strlen($v);
-            }
-            $html .= "\n\n<span style=\"color:yellow\">";
-            foreach ($explain as $k => $v) {
-                $html .= str_pad($k, $max_col_width[$k]) . ' | ';
-            }
-            $html .= "</span>\n";
-            foreach ($explain as $k => $v) {
-                $html .= str_pad($v, $max_col_width[$k]) . ' | ';
-            }
-
-            $html .= self::$echo_once_post;
-
-        } catch (mysqli_sql_exception $e) {
-
-            $html .= '<pre style="margin-top: -0.9em;"><code class="php">';
-            $html .= htmlentities('$pre = $no; echo "lk";') . "\n";
-            $html .= 'Error 4: ' . $this->errno . '<br>' . $e->__toString();
-            $html .= '</code></pre>';
-            return $html;
-
-        #} finally {
-        #    echo 'done';
-        }
-
-        return $html;
-
-    }
-
-
-    /**
-     * Display the results of the query in a collapsed table
-     *
-     * @param string $query The SQL-query
-     *
-     * @return string HTML markup for the table
-     */
-    public function debugRunQuery($query){
-
-        $html = '';
-
-        $once_results = $this->query($query);
-        $once_fields = $once_results->fetch_fields();
-
-        $cssid = $this->generateRandomString();
-
-        $html .= '<table class="' . $cssid . ' styled-table collapsed-view" style="margin-top: -1em;">';
-        $html .= '<thead>';
-        $html .= '<tr>';
-        foreach($once_fields as $_field){
-            $html .= '<th>';
-            $html .= $_field->name;
-            $html .= '</th>';
-        }
-        $html .= '</tr></thead>';
-        $html .= '<tbody>';
-
-        $html .= '<tr class="toggler" data-toggle="toggler" data-class="collapsed-view" data-target=".' . $cssid . '"><td colspan="' . $once_results->field_count . '"><msg1>SKJUL DATA</msg1><msg2>KLIKK FOR Å SE DATA</msg2></td></tr>';
-
-        $_row_count = 0;
-        while ($_row = $once_results->fetch_row()) {
-            $html .= '<tr>';
-            foreach ($_row as $__row) {
-                $html .= '<td>' . $__row . '</td>';
-            }
-            $html .= '</tr>';
-
-            $_row_count++;
-            if( $_row_count > 50 ){
-                $html .= '<tr class="ignoring"><td colspan="' . $once_results->field_count . '"> ... ignoring rest of rows after 50 ...</td></tr>';
-                break;
-            }
-
-        }
-
-        $html .= '</tbody>';
-        $html .= '</table>';
-
-        return $html;
-
-    }
-
-    /**
-    * True False Boolean converter
-    * 
-    * There are several ways to express a true false switch, it could be 0 and 1 just as on and off. Even
-    * true and false in itself does not have anything to do with a boolean used in else if statments.
-    * Wrap it around your variable and you get what you intended as logic.
-    *
-    * Example:
-    * $test = 'true';
-    * if(_bool($test)){ echo 'true'; } else { echo 'false'; }
-    * 
-    * @param {mixed} $var A true false statment not being a boolean
-    *
-    * @author Kim Steinhaug, <kim@steinhaug.com>
-    * 
-    * @return {bool} Boolean
-    */
-    public function _bool($var)
-    {
-        if(is_bool($var)){
-            return $var;
-        } else if($var === NULL || $var === 'NULL' || $var === 'null'){
-            return false;
-        } else if(is_string($var)){
-            $var = mb_strtolower(trim($var));
-            if($var=='false'){ return false;
-            } else if($var=='true'){ return true;
-            } else if($var=='no'){ return false;
-            } else if($var=='yes'){ return true;
-            } else if($var=='off'){ return false;
-            } else if($var=='on'){ return true;
-            } else if($var==''){ return false;
-            } else if(ctype_digit($var)){
-            if( (int) $var)
-                return true;
-                else
-                return false;
-            } else { return true; }
-        } else if( ctype_digit( (string) $var)){
-            if( (int) $var)
-            return true;
-            else
-            return false;
-        } else if(is_array($var)){
-            if(count($var))
-            return true;
-            else
-            return false;
-        } else if(is_object($var)){
-            return true; // No reason to (bool) an object, we assume OK for crazy logic
-        } else {
-            return true; // Whatever came though must be something,  OK for crazy logic
-        }
     }
 
 }
