@@ -1,7 +1,5 @@
 <?php
 
-//use Steinhaug\Mysqli\Traits\QueryExporterTrait;
-//use Steinhaug\Mysqli\Traits\BuddyTrait;
 use Steinhaug\Mysqli\Traits\UtilityTrait;
 
 /**
@@ -52,36 +50,20 @@ use Steinhaug\Mysqli\Traits\UtilityTrait;
  */
 class Mysqli2 extends mysqli
 {
-    //use QueryExporterTrait;
-    //use BuddyTrait;
     use UtilityTrait;
 
-    private $version = '1.7.0';
+    private $version = '1.7.0-refactor';
 
     static $die_on_error = true;
 
     protected static $instance;
     protected static $options = [];
 
-    protected static $verbose_level = 0;
-    protected static $verbose_queries = false;
-    protected static $verbose_type = 'html';
-
     protected static $log_skip_writing = false;
     protected static $log_once = null;
     protected static $log_once_tag = '';
 
     protected static $log_what_queries = 'none';
-
-    protected static $echo_once = false;
-    protected static $echo_once_b = false;
-    protected static $echo_once_pre  = '<pre class=""><code class="sql">';
-    protected static $echo_once_post = '</code></pre>';
-    // null = not loaded, true = loading, false = already loaded ignore
-    protected static $echo_load_dependencies = null;
-
-    protected static $query_exporter_settings = [];
-    protected static $array_full_columns = null;
 
     protected $result_filter = null;
 
@@ -110,55 +92,6 @@ class Mysqli2 extends mysqli
 
         //self::check_logfile_path();
     }
-
-    public function check_logfile_path()
-    {
-
-        $logfile = self::$logfile_folder_path . '/' . 'sqllog' . '.log';
-        echo '$mysqli->check_logfile_path ...' . "<br>\n-- logfile path: " . $logfile . "<br>\n";
-
-        if( substr(self::$logfile_folder_path,-1) == '/' )
-            echo '** Syntax error in path, should not have ending slash! <br>' . "\n" . self::$logfile_folder_path . "<br>\n";
-
-        if( file_exists($logfile) ){
-            $byte = filesize($logfile);
-            echo '-- File exists (' . $byte . ' bytes)!' . "<br>\n";
-        } else {
-            echo '-- File does not exist!' . "<br>\n";
-        }
-
-        echo "-- Test write, adding " . strlen('Test write...' . "\n") . " bytes to logfile ...<br>\n";
-
-        if ($fh = @fopen($logfile, 'a+')) {
-            fputs($fh, 'Test write...' . "\n", strlen('Test write...' . "\n"));
-            fclose($fh);
-        }
-
-        if (file_exists($logfile)) {
-            clearstatcache();
-            $byte = filesize($logfile);
-            echo '-- SQL Logfile exists (' . $byte . ' bytes)!' . "<br>\n";
-        } else {
-            echo '-- SQL Logfile does not exist!' . "<br>\n";
-        }
-
-        echo "<br>\nQUERY Checks<br>\n";
-        echo "-- Quering database: SHOW VARIABLES;<br>\n";
-        $vars = $this->result('array')->query("SHOW VARIABLES");
-        echo '-- returned ' . count($vars) . ' variables.' . "<br>\n";
-
-        echo "<br>\nGlobal logfile() test.<br>\n";
-        $logdir = '/logs';
-        if (!empty($GLOBALS['logdir_serverPath'])) {
-            $logdir = $GLOBALS['logdir_serverPath'];
-        }
-        echo '-- logdir: ' .  $logdir . "<br>\n";
-        echo '-- Exist and is directory: ' . (is_dir($logdir)?'yes':'no') . "<br>\n";
-
-        echo "<br>\nremove call to checkstatus to continue...";
-        exit;
-    }
-
 
     public function __construct()
     {
@@ -297,16 +230,6 @@ class Mysqli2 extends mysqli
     }
 
     /**
-     * Enable syntax highlighted QUERY on page
-     */
-    public function echo()
-    {
-        self::$echo_once   = true;
-        self::$echo_once_b = true;
-        return $this;
-    }
-
-    /**
      * Logic when an error occures, all errors should execute this function
      *
      * @param string $error_message  The SQL Error reported my server
@@ -327,46 +250,12 @@ class Mysqli2 extends mysqli
         $this->write_to_logfile('ERROR SQL: ' . $sql_query, null, true);
         $this->write_to_logfile($error_message, null, true);
 
-        $error_no = \sqlError__alertAndStop((strlen($error_number)?'#' . $error_number . ', ':'') . $error_message, $sql_query, $reference);
-        if (self::$die_on_error) {
-
-            if(empty($GLOBALS['dashboardLoaded'])){
-                echo 'DB ERROR #' . $error_no . "\n";
-                echo '-- ' . $error_message;
-                if($GLOBALS['localmode']){
-                    echo "-- <br>\n";
-                    echo htmlentities($sql_query);
-                }
-            } else {
-                // Assuming theese are opened.
-                echo '</div></div></div></div>';
-
-                echo '
-                    <script>
-                    $(document).ready(function(){
-                        let dynmodal = new DynModal.Core();
-                        dynmodal.setHeaderTitle("SQL Error #' . $error_no . '")
-                            .setShowCloseButton(false)
-                            .setBody(function() {
-                                return \'<h1 class="mt-n25">EN DATABASEFEIL HAR OPPSTÅTT</h1><p>Det har oppstått en feil i kommunikasjonen mot databasen, feilen er logget og det er sendt varsel til webmaster.</p><p>Databasefeil #' . $error_no . ' vil bli rettet med første annledning!</p><p>Om du er i kontakt med teknisk support kan du referere til denne feilen som databasefeil #' . $error_no . '</p><p><a href="/">Tilbake til forsiden</a><br>&nbsp; eller <br><a href="/?s=' . $_GET['s'] . '">Tilbake til &quot;' . $_GET['s'] . '&quot; modulen</a></p>\';
-                        }).setFooter([]).buildAndShow(\'static\');
-
-                    });
-                    </script>
-                ';
-
-                echo '</body></html>';
-            }
-
-            exit;
-        }
-
         throw new \exception($error_message, (int) $error_number);
 
         return false;
     }
 
-    public function chaining_before($query, $multi_types = null, $muli_vars = null)
+    public function chaining_before($query, $multi_types = null, $multi_vars = null)
     {
         if( self::$log_what_queries == 'all' and self::$log_once === null ){
             self::$log_once = true;
@@ -379,62 +268,23 @@ class Mysqli2 extends mysqli
                 self::$log_once_tag = '';
             }
 
-            if ($multi_types === null and $muli_vars === null) {
+            if ($multi_types === null and $multi_vars === null) {
                 $this->write_to_logfile($query);
             } else {
                 $this->write_to_logfile($query . "\n" . 
                                     \line_pad(
-                                        $this->prettyprint_types(print_r($multi_types, true)) . "\n" .
-                                        print_r($muli_vars, true)
+                                        print_r($multi_types, true) . "\n" .
+                                        print_r($multi_vars, true)
                                             , 4)
-                                       );
+                                    );
             }
         }
-
-
-
-
-
-        if (self::$echo_once) {
-            self::$echo_once = false;
-            echo $this->debugPrintQuery($query);
-            echo $this->debugExplainQuery($query);
-            if (self::$echo_load_dependencies === null)
-                self::$echo_load_dependencies = true;
-        }
-
-        if (self::$verbose_queries) {
-            if (self::$verbose_type == 'plain') {
-                echo $query . "\n";
-            } else {
-                echo htmlentities($query) . '<br>';
-            }
-        } elseif (self::$verbose_level) {
-            echo '.';
-        }
-
     }
+
     public function chaining_after($query)
     {
-
-        if (self::$echo_once_b) {
-            self::$echo_once_b = false;
-            echo $this->debugRunQuery($query);
-            if(self::$echo_load_dependencies === null)
-                self::$echo_load_dependencies = true;
-        }
-
-        // Finalize ->echo() logic and output dependencies and javascript 
-        if (self::$echo_load_dependencies === true) {
-            echo $this->debugLoadDeps();
-        }
-
         self::$log_skip_writing = false;
         self::$log_once = null;
-        self::$echo_once = false;
-        self::$echo_once_b = false;
-        self::$echo_load_dependencies = false;
-
     }
 
     /**
@@ -594,21 +444,6 @@ class Mysqli2 extends mysqli
 
 
 
-    public function insert_multi_query($multi_query){
-
-        // https://stackoverflow.com/questions/14715889/strict-standards-mysqli-next-result-error-with-mysqli-multi-query
-        $affected_rows = 0;
-        if( $this->multi_query($multi_query) ){
-            do{
-                $affected_rows+=$this->affected_rows;
-            } while( $this->more_results() && $this->next_result() );
-        }
-
-        if( $this->error )
-            return $this->process_error($this->error, $multi_query, $this->errno, '', __METHOD__);
-
-        return $affected_rows;
-    }
 
 
     /**
@@ -898,38 +733,6 @@ class Mysqli2 extends mysqli
         return $data;
     }
 
-    /**
-     * Parse and detect possible length of column
-     *
-     * @param array $column Array returned by MySQL FULL COLUMN for the column
-     *
-     * @return Mixed Null if no length found, or integer if found.
-     */
-    public function parse_col_length($column){
-
-        $length = null;
-
-        $string = mb_strtolower( $column['Type'] );
-        if( substr($string, 0, 8) == 'varchar(' ){
-            $length = substr($string, 8, -1);
-        }
-
-        return $length;
-
-    }
-
-    /* alfa setup, no scheme is in effect */
-    public function debug_queries($type = 'plain')
-    {
-        self::$verbose_queries = true;
-        self::$verbose_type = $type;
-    }
-
-    /* alfa setup, no scheme is in affect */
-    public function verbose($lv)
-    {
-        self::$verbose_level = $lv;
-    }
 
     /**
      * Return the error_message from temp variable
@@ -950,12 +753,11 @@ class Mysqli2 extends mysqli
     public function write_to_logfile($the_string, $file = null, $force = false)
     {
 
+        // $force: remove
+
         if( $file === null )
             $file = 'sqllog';
 
-        if (!$force and self::$log_skip_writing) {
-            //self::$log_skip_writing = false;
-        } else {
             if (self::$logfile_folder_path !== null) {
                 if (file_exists(self::$logfile_folder_path . '/' . $file . '.log')) {
                     if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.log', 'a+')) {
@@ -963,27 +765,8 @@ class Mysqli2 extends mysqli
                         fclose($fh);
                     }
                 }
-
-                $querystart = substr(trim(substr($the_string, 0, 15)), 0, 6);
-
-                if( mb_strtoupper($querystart) == mb_strtoupper('UPDATE') ){
-                    if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.UPDATE.log', 'a+')) {
-                        fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
-                        fclose($fh);
-                    }
-                }
-
-                if( mb_strtoupper($querystart) == mb_strtoupper('INSERT') ){
-                    if ($fh = @fopen(self::$logfile_folder_path . '/' . $file . '.INSERT.log', 'a+')) {
-                        fputs($fh, $the_string . "\n", strlen($the_string . "\n"));
-                        fclose($fh);
-                    }
-                }
-
                 return(true);
-
             }
-        }
     }
 
 
