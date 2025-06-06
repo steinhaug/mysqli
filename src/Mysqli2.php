@@ -1,8 +1,7 @@
 <?php
 
-use Steinhaug\Mysqli\Traits\QueryExporterTrait;
-use Steinhaug\Mysqli\Traits\BuddyTrait;
-use Steinhaug\Mysqli\Traits\DebuggingTrait;
+//use Steinhaug\Mysqli\Traits\QueryExporterTrait;
+//use Steinhaug\Mysqli\Traits\BuddyTrait;
 use Steinhaug\Mysqli\Traits\UtilityTrait;
 
 /**
@@ -53,9 +52,8 @@ use Steinhaug\Mysqli\Traits\UtilityTrait;
  */
 class Mysqli2 extends mysqli
 {
-    use QueryExporterTrait;
-    use BuddyTrait;
-    use DebuggingTrait;
+    //use QueryExporterTrait;
+    //use BuddyTrait;
     use UtilityTrait;
 
     private $version = '1.7.0';
