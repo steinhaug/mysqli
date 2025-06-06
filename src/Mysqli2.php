@@ -1,5 +1,8 @@
 <?php
 
+# Claude refactoring First run
+# https://claude.ai/chat/e2dde5d3-cdae-4a85-b2ae-ab0a6d1ae3da
+
 use Steinhaug\Mysqli\Traits\UtilityTrait;
 
 /**

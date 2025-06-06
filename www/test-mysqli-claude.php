@@ -2,7 +2,6 @@
 
 # https://chatgpt.com/c/6842b4a4-c574-8012-81a8-c5d54a8e030c
 
-
 class Mysqli2TestSuite 
 {
     private $mysqli;

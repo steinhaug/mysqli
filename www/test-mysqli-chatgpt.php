@@ -1,5 +1,5 @@
 <?php
-// Forutsetter at $mysqli allerede er en gyldig mysqli-tilkobling med korrekt charset
+// https://chatgpt.com/c/6842b4a4-c574-8012-81a8-c5d54a8e030c
 
 $mysqli->set_charset('utf8mb4');
 
