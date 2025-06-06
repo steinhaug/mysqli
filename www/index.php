@@ -29,14 +29,25 @@ while($item = $result->fetch_row()) {
 */
 
 echo '
-    <h2>Quick menu</h2>
-    <a href="?run=tests">1. Run Mysqli tests</a><br>
+    <h2><a href="?run=def">[&lt;]</a> Quick menu</h2>  
+    <a href="?run=tests">1. Run Mysqli tests</a><br>  
+    <a href="?run=testsClaude">2. Run Mysqli tests - Claude</a><br>  
+    <a href="?run=testsChatGPT">2. Run Mysqli tests - ChatGPT</a><br>  
+
     <a href="?run=query1">2. query1</a>
 ';
 
 if( isset($_GET['run']) AND ($_GET['run']=='tests') ){
     echo '<h2>Running mysqli-tests</h2>';
     include 'test-mysqli.php';
+}
+if( isset($_GET['run']) AND ($_GET['run']=='testsClaude') ){
+    echo '<h2>Running mysqli-tests - Claude</h2>';
+    include 'test-mysqli-claude.php';
+}
+if( isset($_GET['run']) AND ($_GET['run']=='testsChatGPT') ){
+    echo '<h2>Running mysqli-tests - ChatGPT</h2>';
+    include 'test-mysqli-chatgpt.php';
 }
 if( isset($_GET['run']) AND ($_GET['run']=='query1') ){
     echo '<h2>Running mysqli-tests test-query1.php</h2>';

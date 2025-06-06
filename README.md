@@ -22,6 +22,7 @@ Mysqli Abstraction Layer v1.6.6
 - [4. Code Examples](#4-code-examples)
   - [4.1 Init](#41-init)
   - [4.2 Query](#42-query)
+  - [4.3 Mysqli2Debug reference](#43-mysqli2debug-reference)
 - [5. Information](#5-information)
   - [5.1 License](#51-license)
   - [5.2 Author](#52-author)
@@ -122,6 +123,14 @@ Prepared insert:
     if (!$InsertId) {
         throw new Exception('prepared_insert(insert into) inserted_id error');
     }
+
+## 4.3 Mysqli2Debug reference
+
+// I utvikling:
+$mysqli = Mysqli2Debug::getInstance($host, $port, $user, $pass, $db);
+
+// I produksjon:
+$mysqli = Mysqli2::getInstance($host, $port, $user, $pass, $db);
 
 # 5. Information
 
