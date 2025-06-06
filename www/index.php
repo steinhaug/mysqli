@@ -16,6 +16,10 @@ if( $mysqli->character_set_name() != 'utf8' ){
     }
 }
 
+if(!function_exists('sqlError__alertAndStop')){ function sqlError__alertAndStop($sql_error, $sql_query, $reference = '', $UserID = 0, $trace = null){
+    return time();
+} }
+
 /*
 $result = $mysqli->query('SHOW TABLES');
 while($item = $result->fetch_row()) {
@@ -27,11 +31,15 @@ while($item = $result->fetch_row()) {
 echo '
     <h2>Quick menu</h2>
     <a href="?run=tests">1. Run Mysqli tests</a><br>
-    <a href="?run=manual">2. List manual</a>
+    <a href="?run=query1">2. query1</a>
 ';
 
 if( isset($_GET['run']) AND ($_GET['run']=='tests') ){
     echo '<h2>Running mysqli-tests</h2>';
     include 'test-mysqli.php';
+}
+if( isset($_GET['run']) AND ($_GET['run']=='query1') ){
+    echo '<h2>Running mysqli-tests test-query1.php</h2>';
+    include 'test-query1.php';
 }
 
