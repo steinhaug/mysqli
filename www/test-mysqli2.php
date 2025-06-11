@@ -22,6 +22,34 @@
 echo '<h1>test</h1>';
 
 
+
+$insertId = $mysqli->execute(
+    "INSERT INTO `zzz_testtable` (user_id, created, email, string, hours) VALUES (?, NOW(), ?, ?, ?)",
+    'issd', 
+    [100, 'special@test.com', 'stringdata', 0]
+);
+echo 'insertId: ' . $insertId . '<br>';
+
+
+$result = $mysqli->execute(
+    "SELECT * FROM `zzz_testtable` WHERE user_id=? AND email=? AND string=? AND hours=?",
+    'issd', 
+    [100, 'special@test.com', 'stringdata', 0]
+);
+var_dump($result); // results in array, empty array if none selected.
+
+
+
+$result = $mysqli->execute(
+    "SELECT * FROM `zzz_testtable` WHERE user_id=?",
+    'i', 
+    [100]
+);
+var_dump($result);
+
+#echo 'insertId: ' . $insertId . '<br>';
+
+exit;
 /*
 $mysqli->execute(
     "",

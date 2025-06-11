@@ -2,3 +2,4 @@ credentials.php
 /vendor
 composer.lock
 /logs
+/_removed/**/*
