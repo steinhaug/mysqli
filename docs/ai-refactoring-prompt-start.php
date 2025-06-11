@@ -1,6 +1,8 @@
-**Filstruktur**
-- Mysqli2.php  
-- Traits/UtilityTrait.php  
+files attached  
+
+Mysqli2.php  
+
+./Traits/UtilityTrait.php  
 
 **Initialize**  
 ```
@@ -16,14 +18,6 @@ if( $mysqli->character_set_name() != 'utf8' ){
         printf("Error loading character set utf8: %s\n", $mysqli->error);
         exit();
     }
-}
-```
-
-**Needed dummy class hardkoda i klassen min (gammel "bug")**  
-```
-/* Origally function to email sqlError to admin and die(); Hard errror; */
-function sqlError__alertAndStop($sql_error, $sql_query, $reference = '', $UserID = 0, $trace = null){
-    return time();
 }
 ```
 

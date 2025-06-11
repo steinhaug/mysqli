@@ -28,11 +28,17 @@ while($item = $result->fetch_row()) {
 
 */
 
+#    $collate = $mysqli->return_charset_and_collate([['utf8' => 'utf8_swedish_ci', 'utf8mb4' => 'utf8mb4_swedish_ci']]);
+#var_dump($collate);exit;
+
 echo '
     <h2><a href="?run=def">[&lt;]</a> Quick menu</h2>  
     <a href="?run=tests">1. Run Mysqli tests</a><br>  
     <a href="?run=testsClaude">2. Run Mysqli tests - Claude</a><br>  
     <a href="?run=testsChatGPT">2. Run Mysqli tests - ChatGPT</a><br>  
+
+    <a href="?run=testsV2">3. Run v2 tests</a><br>  
+    <a href="?run=testsV2error">3. Run v2 error tests</a><br>  
 
     <a href="?run=query1">2. query1</a>
 ';
@@ -40,6 +46,14 @@ echo '
 if( isset($_GET['run']) AND ($_GET['run']=='tests') ){
     echo '<h2>Running mysqli-tests</h2>';
     include 'test-mysqli.php';
+}
+if( isset($_GET['run']) AND ($_GET['run']=='testsV2') ){
+    echo '<h2>Running mysqli-testsV2</h2><pre>';
+    include 'test-mysqli2.php';
+}
+if( isset($_GET['run']) AND ($_GET['run']=='testsV2error') ){
+    echo '<h2>Running mysqli-testsV2</h2><pre>';
+    include 'test-mysqli2error.php';
 }
 if( isset($_GET['run']) AND ($_GET['run']=='testsClaude') ){
     echo '<h2>Running mysqli-tests - Claude</h2>';

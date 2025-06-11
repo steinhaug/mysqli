@@ -51,7 +51,7 @@
  * ->prepared_multiquery(...)
  *   Run a single, or multi prepared statment query
  */
-class Mysqli2 extends mysqli
+class Mysqli2old extends mysqli
 {
     #use UtilityTrait;
 
