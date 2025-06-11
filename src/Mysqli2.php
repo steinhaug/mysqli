@@ -26,28 +26,6 @@ class Mysqli2 extends mysqli {
     private static $useExceptions = true;
     private $lastError = null;
 
-    /**
-     * @param bool $use
-     * @return void
-     */
-    public static function setUseExceptions($use) {
-        self::$useExceptions = $use;
-    }
-    
-    /**
-     * @return array|null
-     */
-    public function getLastError() {
-        return $this->lastError;
-    }
-    
-    /**
-     * @return string
-     */
-    public function getVersion() {
-        return $this->version;
-    }
-
     public function __construct() {
         $o = self::$options;
         
@@ -95,6 +73,28 @@ class Mysqli2 extends mysqli {
     }
 
     /**
+     * @param bool $use
+     * @return void
+     */
+    public static function setUseExceptions($use) {
+        self::$useExceptions = $use;
+    }
+    
+    /**
+     * @return array|null
+     */
+    public function getLastError() {
+        return $this->lastError;
+    }
+    
+    /**
+     * @return string
+     */
+    public function getVersion() {
+        return $this->version;
+    }
+
+    /**
      * @param array $opt
      * @return void
      */
@@ -136,18 +136,6 @@ class Mysqli2 extends mysqli {
         }
         
         return new \mysqli_result($this);
-    }
-
-    /**
-     * @param array $arr
-     * @return array
-     */
-    private function refValues($arr) {
-        $refs = [];
-        foreach ($arr as $key => $value) {
-            $refs[$key] = &$arr[$key];
-        }
-        return $refs;
     }
 
     /**
@@ -282,6 +270,18 @@ class Mysqli2 extends mysqli {
         } else {
             return $result[0];
         }
+    }
+
+    /**
+     * @param array $arr
+     * @return array
+     */
+    private function refValues($arr) {
+        $refs = [];
+        foreach ($arr as $key => $value) {
+            $refs[$key] = &$arr[$key];
+        }
+        return $refs;
     }
 
 }
