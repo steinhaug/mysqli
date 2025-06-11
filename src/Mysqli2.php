@@ -20,30 +20,13 @@ class DatabaseException extends Exception {
 class Mysqli2 extends mysqli {
     private $version = '2.0.0';
     
+    private static $devMode = false; // Default: production
+
     protected static $instance;
     protected static $options = [];
     
     private static $useExceptions = true;
     private $lastError = null;
-
-    public function __construct() {
-        $o = self::$options;
-        
-        mysqli_report(MYSQLI_REPORT_OFF);
-        
-        @parent::__construct(
-            isset($o['host']) ? $o['host'] : 'localhost',
-            isset($o['user']) ? $o['user'] : 'root',
-            isset($o['pass']) ? $o['pass'] : '',
-            isset($o['dbname']) ? $o['dbname'] : 'world',
-            isset($o['port']) ? $o['port'] : 3306,
-            isset($o['sock']) ? $o['sock'] : false
-        );
-        
-        if (mysqli_connect_errno()) {
-            $this->handleError(mysqli_connect_error(), '', mysqli_connect_errno());
-        }
-    }
 
     /**
      * @param string|null $host
@@ -70,6 +53,43 @@ class Mysqli2 extends mysqli {
             self::$instance = new self();
         }
         return self::$instance;
+    }
+
+    public static function isDev($enable = null) {
+        if ($enable !== null) {
+            self::$devMode = (bool)$enable;
+        }
+        return self::$devMode;
+    }
+    
+    public static function isProd($enable = null) {
+        if ($enable !== null) {
+            self::$devMode = !((bool)$enable);
+        }
+        return !self::$devMode;
+    }
+    
+    public function __construct() {
+        $o = self::$options;
+        
+        // Sett mysqli_report basert på klasse-modus
+        mysqli_report(self::$devMode ? 
+            MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT : 
+            MYSQLI_REPORT_OFF
+        );
+        
+        @parent::__construct(
+            isset($o['host']) ? $o['host'] : 'localhost',
+            isset($o['user']) ? $o['user'] : 'root',
+            isset($o['pass']) ? $o['pass'] : '',
+            isset($o['dbname']) ? $o['dbname'] : 'world',
+            isset($o['port']) ? $o['port'] : 3306,
+            isset($o['sock']) ? $o['sock'] : false
+        );
+        
+        if (mysqli_connect_errno()) {
+            $this->handleError(mysqli_connect_error(), '', mysqli_connect_errno());
+        }
     }
 
     /**
