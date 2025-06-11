@@ -1,6 +1,6 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v1.6.6
+Mysqli Abstraction Layer v1.9.0
 
 
 <div class="show_none">
@@ -12,6 +12,7 @@ Mysqli Abstraction Layer v1.6.6
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v1.9.0](#v190)
     - [V1.7.0](#v170)
     - [v1.6.6](#v166)
     - [v1.6.5](#v165)
@@ -20,9 +21,8 @@ Mysqli Abstraction Layer v1.6.6
     - [v1.6.2](#v162)
 - [3. Install by composer](#3-install-by-composer)
 - [4. Code Examples](#4-code-examples)
-  - [4.1 Init](#41-init)
+  - [4.1 Basic Init](#41-basic-init)
   - [4.2 Query](#42-query)
-  - [4.3 Mysqli2Debug reference](#43-mysqli2debug-reference)
 - [5. Information](#5-information)
   - [5.1 License](#51-license)
   - [5.2 Author](#52-author)
@@ -30,11 +30,23 @@ Mysqli Abstraction Layer v1.6.6
 
 # 1. Description
 
-Mainly for development and logging of queries, but now that the class is up and running future releases should be expected to do the heavy lifting of queries and iteration.
+Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provides simplified prepared statement execution, better error handling, and development/production mode switching. The class extends mysqli, inheriting all native MySQLi methods while adding streamlined functionality.
+
+**Key Features**  
+
+- **Singleton Pattern**: Single database connection instance
+- **Development/Production Modes**: Configurable error reporting
+- **Simplified Prepared Statements**: Streamlined syntax for common operations
+- **Smart Return Values**: Context-aware return types based on SQL operation
+- **Exception Handling**: Optional exception throwing with detailed error information
 
 # 2. Version History
 
 ## 2.1 Log
+
+### v1.9.0
+
+    - Ny refaktorert klasse, nye metoder. Se docs/mysqli2_documentation.md
 
 ### V1.7.0
 
@@ -69,20 +81,24 @@ To install the library use composer:
 
 # 4. Code Examples
 
-## 4.1 Init
+## 4.1 Basic Init
 
-We want this to be a replacement for the existing $mysqli function in PHP so initialize your DB connection, using credentials from credentials.php in project.
+```php
+// Enable development mode (verbose errors)
+Mysqli2::isDev(true);
 
-    $mysqli = Mysqli2::getInstance($mysql_host, $mysql_port, $mysql_user, $mysql_password, $mysql_database);
+// Get singleton instance with connection parameters
+$mysqli = Mysqli2::getInstance($mysql_host, $mysql_port, $mysql_user, $mysql_password, $mysql_database);
 
-    if ($mysqli->connect_errno) {
-        echo 'Failed to connect to MySQL: (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error;
-    }
+// Set character encoding
+$mysqli->set_charset("utf8");
 
-    if (!$mysqli->set_charset("utf8")) {
-        printf("Error loading character set utf8: %s\n", $mysqli->error);
-        exit();
-    }
+// Check connection
+if ($mysqli->connect_errno) {
+    echo 'Failed to connect to MySQL: (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error; 
+    exit();
+}
+```
 
 ## 4.2 Query
 
@@ -123,14 +139,6 @@ Prepared insert:
     if (!$InsertId) {
         throw new Exception('prepared_insert(insert into) inserted_id error');
     }
-
-## 4.3 Mysqli2Debug reference
-
-// I utvikling:
-$mysqli = Mysqli2Debug::getInstance($host, $port, $user, $pass, $db);
-
-// I produksjon:
-$mysqli = Mysqli2::getInstance($host, $port, $user, $pass, $db);
 
 # 5. Information
 
