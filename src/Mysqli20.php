@@ -538,6 +538,7 @@ class Mysqli20 extends mysqli {
         }
     }
 
+
     /**
      * Execute batch prepared statements
      * 
@@ -624,7 +625,6 @@ class Mysqli20 extends mysqli {
         $stmt->close();
         return $results;
     }
-
 
 
     /**

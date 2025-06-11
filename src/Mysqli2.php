@@ -122,6 +122,7 @@ class Mysqli2 extends mysqli {
         return false;
     }
 
+
     /**
      * @param string $query
      * @param int $resultmode
@@ -281,93 +282,6 @@ class Mysqli2 extends mysqli {
         } else {
             return $result[0];
         }
-    }
-
-    /**
-     * Execute batch prepared statements
-     * 
-     * @param string $sql SQL with placeholders
-     * @param string $types Type definition string
-     * @param array $paramSets Array of parameter arrays
-     * @return array Results for each execution
-     */
-    public function executeBatch($sql, $types, $paramSets) {
-        if (count($paramSets) == count($paramSets, 1)) {
-            $paramSets = [$paramSets];
-        }
-        
-        $stmt = $this->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
-        
-        // Validate type string length
-        $expectedCount = strlen($types);
-        
-        $bindParams = array_pad([], $expectedCount, '');
-        $bindParamsReferences = [];
-        foreach ($bindParams as $key => $value) {
-            $bindParamsReferences[$key] = &$bindParams[$key];
-        }
-        array_unshift($bindParamsReferences, $types);
-        
-        $bindParamsMethod = new \ReflectionMethod('mysqli_stmt', 'bind_param');
-        $bindParamsMethod->invokeArgs($stmt, $bindParamsReferences);
-        
-        $results = [];
-        foreach ($paramSets as $index => $params) {
-            // Validate each parameter set
-            $actualCount = count($params);
-            if ($expectedCount !== $actualCount) {
-                $results[] = $this->handleError(
-                    "Batch item {$index}: Parameter count mismatch. Expected {$expectedCount} (types: '{$types}'), got {$actualCount}",
-                    $sql,
-                    0
-                );
-                continue;
-            }
-            
-            foreach ($params as $key => $value) {
-                $bindParams[$key] = $value;
-            }
-            
-            if ($stmt->execute()) {
-                $queryType = strtoupper(substr(trim($sql), 0, 6));
-                
-                if ($queryType === 'SELECT') {
-                    $meta = $stmt->result_metadata();
-                    if ($meta) {
-                        $row = [];
-                        $rowReferences = [];
-                        while ($field = $meta->fetch_field()) {
-                            $rowReferences[] = &$row[$field->name];
-                        }
-                        $bindResultMethod = new \ReflectionMethod('mysqli_stmt', 'bind_result');
-                        $bindResultMethod->invokeArgs($stmt, $rowReferences);
-                        
-                        $queryResult = [];
-                        while ($stmt->fetch()) {
-                            $c = [];
-                            foreach ($row as $k => $v) {
-                                $c[$k] = $v;
-                            }
-                            $queryResult[] = $c;
-                        }
-                        $results[] = $queryResult;
-                        $stmt->free_result();
-                    }
-                } else if ($queryType === 'INSERT') {
-                    $results[] = $stmt->insert_id ?: $stmt->affected_rows;
-                } else {
-                    $results[] = $stmt->affected_rows;
-                }
-            } else {
-                $results[] = $this->handleError($stmt->error, $sql, $stmt->errno);
-            }
-        }
-        
-        $stmt->close();
-        return $results;
     }
 
 }
