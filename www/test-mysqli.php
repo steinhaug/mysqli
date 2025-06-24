@@ -52,48 +52,49 @@ try {
     echo '</div>';
 }
 
+
 try {
     // selects
     $UserID = 1;
-    $count = $mysqli->prepared_query1('SELECT count(*) FROM `zzz_testtable` WHERE `user_id`=?', 'i', [$UserID], 0);
+    $count = $mysqli->execute1('SELECT count(*) FROM `zzz_testtable` WHERE `user_id`=?', 'i', [$UserID], 0);
     if (4 !== $count) {
-        throw new Exception('prepared_query1(sql,0) error');
+        throw new Exception('execute1(sql,0) error');
     }
 
     $TestID = 5;
-    $row = $mysqli->prepared_query1('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID], true);
+    $row = $mysqli->execute1('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID], true);
     if (!(!empty($row) and is_array($row) and 8 == count($row))) {
-        throw new Exception('prepared_query1(sql,true) error');
+        throw new Exception('execute1(sql,true) error');
     }
 
     $TestID = 5;
-    $row = $mysqli->prepared_query1('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID]);
+    $row = $mysqli->execute1('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID]);
     if(count($row) == 1){
         if (!(!empty($row[0]) and is_array($row[0]) and 8 == count($row[0]))) {
-            throw new Exception('prepared_query1(sql) default parameters error');
+            throw new Exception('execute1(sql) default parameters error');
         }
     } else if (!(!empty($row) and is_array($row) and 8 == count($row))) {
-        throw new Exception('prepared_query1(sql) default parameters error');
+        throw new Exception('execute1(sql) default parameters error');
     }
 
     $TestID = 1;
-    $set = $mysqli->prepared_query('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID]);
+    $set = $mysqli->execute('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID]);
     if (!(isset($set[0]) and !empty($set[0]) and is_array($set[0]) and 8 == count($set[0]))) {
-        throw new Exception('prepared_query() returned unexpected result');
+        throw new Exception('execute() returned unexpected result');
     }
 
     // delete
     $TestID = 1;
     $UserID = 1;
-    $affected_rows = $mysqli->prepared_query('DELETE FROM `zzz_testtable` WHERE `TestID`=? AND `user_id`=?', 'ii', [$TestID, $UserID]);
+    $affected_rows = $mysqli->execute('DELETE FROM `zzz_testtable` WHERE `TestID`=? AND `user_id`=?', 'ii', [$TestID, $UserID]);
     if (!$affected_rows) {
-        throw new Exception('prepared_query(delete from...) reported 0 deletion');
+        throw new Exception('execute(delete from...) reported 0 deletion');
     }
 
     $UserID = 1;
-    $count = $mysqli->prepared_query1('SELECT count(*) FROM `zzz_testtable` WHERE `user_id`=?', 'i', [$UserID], 0);
+    $count = $mysqli->execute1('SELECT count(*) FROM `zzz_testtable` WHERE `user_id`=?', 'i', [$UserID], 0);
     if (3 !== $count) {
-        throw new Exception('prepared_query(delete from...) database still has all records');
+        throw new Exception('execute(delete from...) database still has all records');
     }
 
     // inserts
@@ -104,14 +105,14 @@ try {
         'isssdss',
         [$UserID, '2020-01-01 00:00:00', 'test/test@test.com', $string, 1.23, '2020-01-01 00:00:00', '2021-01-01 00:00:00'],
     ];
-    $TestID = $mysqli->prepared_insert($sql);
+    $TestID = $mysqli->execute($sql);
     if (!$TestID) {
-        throw new Exception('prepared_insert(insert into) inserted_id error');
+        throw new Exception('execute(insert into) inserted_id error');
     }
 
-    $TestID_check = $mysqli->prepared_query1('SELECT `TestID` FROM `zzz_testtable` WHERE `string`=?', 's', [$string], 0);
+    $TestID_check = $mysqli->execute1('SELECT `TestID` FROM `zzz_testtable` WHERE `string`=?', 's', [$string], 0);
     if ($TestID != $TestID_check) {
-        throw new Exception('prepared_query1(check insert_id from insert into) mismatch ');
+        throw new Exception('execute1(check insert_id from insert into) mismatch ');
     }
 
     // update
@@ -120,14 +121,14 @@ try {
         'ssi',
         ['updated@email.com', 'UPDATED', $TestID],
     ];
-    $affected_rows = $mysqli->prepared_insert($sql);
+    $affected_rows = $mysqli->execute($sql);
     if (!$affected_rows) {
-        throw new Exception('prepared_insert(update..) affected_rows error ');
+        throw new Exception('execute(update..) affected_rows error ');
     }
 
-    $row = $mysqli->prepared_query1('SELECT `TestID`, `email`, `string` FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID], true);
+    $row = $mysqli->execute1('SELECT `TestID`, `email`, `string` FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID], true);
     if (!(isset($row['string']) and 'UPDATED' == $row['string'])) {
-        throw new Exception('prepared_insert(update..) data integrity fail');
+        throw new Exception('execute(update..) data integrity fail');
     }
 
     $testResult = 'success';

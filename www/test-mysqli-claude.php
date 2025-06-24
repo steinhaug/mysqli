@@ -86,48 +86,48 @@ class Mysqli2TestSuite
         $this->startTest('Phase 2: Prepared Statement Testing');
         
         try {
-            // Test prepared_query1 with return mode 0
-            $count = $this->mysqli->prepared_query1(
+            // Test execute1 with return mode 0
+            $count = $this->mysqli->execute1(
                 'SELECT COUNT(*) FROM `' . $this->testTable . '` WHERE `user_id`=?', 
                 'i', 
                 [1], 
                 0
             );
-            $this->assert($count === 4, 'prepared_query1(..., 0) should return scalar value');
+            $this->assert($count === 4, 'execute1(..., 0) should return scalar value');
             
-            // Test prepared_query1 with return mode true
-            $row = $this->mysqli->prepared_query1(
+            // Test execute1 with return mode true
+            $row = $this->mysqli->execute1(
                 'SELECT * FROM `' . $this->testTable . '` WHERE `TestID`=?', 
                 'i', 
                 [5], 
                 true
             );
-            $this->assert(is_array($row) && count($row) === 8, 'prepared_query1(..., true) should return assoc array');
+            $this->assert(is_array($row) && count($row) === 8, 'execute1(..., true) should return assoc array');
             
-            // Test prepared_query1 with NULL result
-            $nullRow = $this->mysqli->prepared_query1(
+            // Test execute1 with NULL result
+            $nullRow = $this->mysqli->execute1(
                 'SELECT * FROM `' . $this->testTable . '` WHERE `TestID`=?', 
                 'i', 
                 [999], 
                 true
             );
-            $this->assert($nullRow === null, 'prepared_query1(..., true) should return NULL for no results');
+            $this->assert($nullRow === null, 'execute1(..., true) should return NULL for no results');
             
-            // Test prepared_query for SELECT
-            $resultSet = $this->mysqli->prepared_query(
+            // Test execute for SELECT
+            $resultSet = $this->mysqli->execute(
                 'SELECT * FROM `' . $this->testTable . '` WHERE `user_id`=?', 
                 'i', 
                 [1]
             );
-            $this->assert(is_array($resultSet) && count($resultSet) === 4, 'prepared_query should return array of rows');
+            $this->assert(is_array($resultSet) && count($resultSet) === 4, 'execute should return array of rows');
             
-            // Test prepared_query for DELETE
-            $deletedRows = $this->mysqli->prepared_query(
+            // Test execute for DELETE
+            $deletedRows = $this->mysqli->execute(
                 'DELETE FROM `' . $this->testTable . '` WHERE `TestID`=? AND `user_id`=?', 
                 'ii', 
                 [1, 1]
             );
-            $this->assert($deletedRows === 1, 'prepared_query(DELETE) should return affected rows');
+            $this->assert($deletedRows === 1, 'execute(DELETE) should return affected rows');
             
             $this->endTest(true, 'All prepared statement tests passed');
             
@@ -141,17 +141,17 @@ class Mysqli2TestSuite
         $this->startTest('Phase 3: INSERT and UPDATE Testing');
         
         try {
-            // Test prepared_insert for INSERT
+            // Test execute for INSERT
             $sql = [
                 'INSERT INTO `' . $this->testTable . '` (`user_id`, `created`, `email`, `string`, `hours`) VALUES (?,?,?,?,?)',
                 'isssd',
                 [3, '2023-01-01 12:00:00', 'test@example.com', 'Test String ÆØÅ', 12.34]
             ];
-            $insertId = $this->mysqli->prepared_insert($sql);
-            $this->assert($insertId > 0, 'prepared_insert(INSERT) should return insert_id');
+            $insertId = $this->mysqli->execute($sql);
+            $this->assert($insertId > 0, 'execute(INSERT) should return insert_id');
             
             // Verify INSERT
-            $check = $this->mysqli->prepared_query1(
+            $check = $this->mysqli->execute1(
                 'SELECT `string` FROM `' . $this->testTable . '` WHERE `TestID`=?',
                 'i',
                 [$insertId],
@@ -159,17 +159,17 @@ class Mysqli2TestSuite
             );
             $this->assert($check === 'Test String ÆØÅ', 'INSERT data integrity check');
             
-            // Test prepared_insert for UPDATE
+            // Test execute for UPDATE
             $sql = [
                 'UPDATE `' . $this->testTable . '` SET `email`=?, `hours`=? WHERE `TestID`=?',
                 'sdi',
                 ['updated@example.com', 99.99, $insertId]
             ];
-            $affectedRows = $this->mysqli->prepared_insert($sql);
-            $this->assert($affectedRows === 1, 'prepared_insert(UPDATE) should return affected rows');
+            $affectedRows = $this->mysqli->execute($sql);
+            $this->assert($affectedRows === 1, 'execute(UPDATE) should return affected rows');
             
             // Verify UPDATE
-            $updated = $this->mysqli->prepared_query1(
+            $updated = $this->mysqli->execute1(
                 'SELECT `email`, `hours` FROM `' . $this->testTable . '` WHERE `TestID`=?',
                 'i',
                 [$insertId],
@@ -193,7 +193,7 @@ class Mysqli2TestSuite
         
         try {
             // Test empty result set
-            $emptyResult = $this->mysqli->prepared_query(
+            $emptyResult = $this->mysqli->execute(
                 'SELECT * FROM `' . $this->testTable . '` WHERE 1=0',
                 '',
                 []
@@ -206,9 +206,9 @@ class Mysqli2TestSuite
                 'isssds',
                 [4, '2023-01-01 00:00:00', 'null@test.com', 'NULL test', 0.00, null]
             ];
-            $nullId = $this->mysqli->prepared_insert($sql);
+            $nullId = $this->mysqli->execute($sql);
             
-            $nullCheck = $this->mysqli->prepared_query1(
+            $nullCheck = $this->mysqli->execute1(
                 'SELECT `validto` FROM `' . $this->testTable . '` WHERE `TestID`=?',
                 'i',
                 [$nullId],
@@ -223,9 +223,9 @@ class Mysqli2TestSuite
                 'isssd',
                 [5, '2023-01-01 00:00:00', 'special@test.com', $specialChars, 0.00]
             ];
-            $specialId = $this->mysqli->prepared_insert($sql);
+            $specialId = $this->mysqli->execute($sql);
             
-            $specialCheck = $this->mysqli->prepared_query1(
+            $specialCheck = $this->mysqli->execute1(
                 'SELECT `string` FROM `' . $this->testTable . '` WHERE `TestID`=?',
                 'i',
                 [$specialId],

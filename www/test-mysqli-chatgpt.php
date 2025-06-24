@@ -37,11 +37,11 @@ foreach ($testData as $row) {
         'iisssdsd',
         $row
     ];
-    $mysqli->prepared_insert($sql);
+    $mysqli->execute($sql);
 }
 
 // Hent ut og vis alle rader
-$rows = $mysqli->prepared_query([
+$rows = $mysqli->execute([
     'SELECT * FROM `zzz_testtable` ORDER BY `TestID`',
     '', []
 ]);

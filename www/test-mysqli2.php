@@ -45,11 +45,12 @@ $result = $mysqli->execute(
     'i', 
     [100]
 );
-var_dump($result);
+
+#var_dump($result);
 
 #echo 'insertId: ' . $insertId . '<br>';
 
-exit;
+#exit;
 /*
 $mysqli->execute(
     "",

@@ -37,6 +37,8 @@ echo '
     <a href="?run=query1">2. query1</a>
 ';
 
+$testResult = '';
+
 if( isset($_GET['run']) AND ($_GET['run']=='tests') ){
     echo '<h2>Running mysqli-tests</h2>';
     include 'test-mysqli.php';
