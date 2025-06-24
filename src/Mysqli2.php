@@ -304,4 +304,92 @@ class Mysqli2 extends mysqli {
         return $refs;
     }
 
+
+
+    /**
+     * Return working collate charsets from mysql
+     *
+     * @param array $c Optional array overriding the $collate array inside function, and only if exist
+     * 
+     * @return array [ charset => collate charset ]
+     */
+    public function return_charset_and_collate($c = [])
+    {
+        $collate = [
+            'utf8' => 'utf8_general_ci',
+            'utf8mb4' => 'utf8mb4_general_ci',
+        ];
+        $_collate = $collate;
+
+        $this->real_query("SHOW COLLATION LIKE 'utf8%'");
+        $res = new mysqli_result($this);
+
+        while ($row = $res->fetch_array(MYSQLI_ASSOC)) {
+            if (in_array($row['Collation'], ['utf8_danish_ci', 'utf8mb4_danish_ci'])) {
+                if ($collate[$row['Charset']] == $_collate[$row['Charset']]) {
+                    $collate[$row['Charset']] = $row['Collation'];
+                }
+            }
+            if (in_array($row['Collation'], ['utf8_swedish_ci', 'utf8mb4_swedish_ci'])) {
+                $collate[$row['Charset']] = $row['Collation'];
+            }
+        }
+
+        if( !empty($c['utf8']) and $this->doesCollationExist($c['utf8'])){
+            $collate['utf8'] = $c['utf8'];
+        }
+
+        if( !empty($c['utf8mb4']) and $this->doesCollationExist($c['utf8mb4'])){
+            $collate['utf8mb4'] = $c['utf8mb4'];
+        }
+
+        return $collate;
+    }
+
+
+    /**
+     * Check if a collation charset already exists in MySQL
+     *
+     * @param [string] $collation Name of collation
+     *
+     * @return boolean True if collation charset exists and false if not found
+     */
+    public function doesCollationExist($collation)
+    {
+        $this->real_query("SHOW COLLATION LIKE '" . $collation . "'");
+        $res = new mysqli_result($this);
+
+        while ($row = $res->fetch_array(MYSQLI_ASSOC)) {
+            if (in_array($row['Collation'], [$collation])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks if the table exists
+     *
+     * @return Returns TRUE if table exists, else FALSE if failure or not found.
+     */
+    public function table_exist($table_name)
+    {
+        $query = "SELECT COUNT(*)
+        FROM information_schema.tables 
+        WHERE table_schema = '" . self::$options['dbname'] . "' 
+        AND table_name = '" . $table_name . "'";
+
+        if( !$this->real_query($query) )
+            return $this->handleError($this->error, $query, $this->errno);
+
+        $result = new mysqli_result($this);
+        $row = $result->fetch_row();
+        if (!$row[0]) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
 }
