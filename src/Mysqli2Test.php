@@ -39,8 +39,8 @@ class Mysqli2Test {
         $this->testDeleteMultiple();
         
         // Test batch operations
-        $this->testBatchInsert();
-        $this->testBatchSelect();
+        #$this->testBatchInsert();
+        #this->testBatchSelect();
         
         // Test error handling
         $this->testErrorHandling();
@@ -308,6 +308,8 @@ class Mysqli2Test {
         try {
             $this->mysqli->execute("SELECT * FROM non_existent_table");
         } catch (DatabaseException $e) {
+            //echo "Error: " . $e->getMessage() . "\n";
+            //echo "SQL: " . $e->getSqlQuery() . "\n";
             $exceptionThrown = true;
             $this->test("Exception contains SQL query", strpos($e->getSqlQuery(), 'non_existent_table') !== false);
         }

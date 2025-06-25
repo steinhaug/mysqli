@@ -171,89 +171,91 @@ class Mysqli2 extends mysqli {
      *   - false on error
      */
     public function execute($sql, $types = '', $params = []) {
-        // Handle array format
-        if (is_array($sql)) {
-            list($sql, $types, $params) = $sql;
-        }
-        
-        $stmt = $this->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
-        
-        // Bind parameters if provided
-        if ($types && $params) {
-            // Validate parameter count matches type string
-            $expectedCount = strlen($types);
-            $actualCount = count($params);
-            
-            if ($expectedCount !== $actualCount) {
-                $stmt->close();
-                return $this->handleError(
-                    "Parameter count mismatch: Query expects {$expectedCount} parameters (types: '{$types}'), but {$actualCount} provided",
-                    $sql,
-                    0
-                );
+
+            // Handle array format
+            if (is_array($sql)) {
+                list($sql, $types, $params) = $sql;
             }
             
-            array_unshift($params, $types);
-            call_user_func_array([$stmt, 'bind_param'], $this->refValues($params));
-        }
-        
-        if (!$stmt->execute()) {
-            return $this->handleError($stmt->error, $sql, $stmt->errno);
-        }
-        
-        // Determine query type from SQL
-        $trimmedSql = trim($sql);
-        $queryType = strtoupper(substr($trimmedSql, 0, 6));
-        
-        // Special check for DELETE since it's 7 chars
-        if (strtoupper(substr($trimmedSql, 0, 7)) === 'DELETE ') {
-            $queryType = 'DELETE';
-        }
-        
-        switch ($queryType) {
-            case 'INSERT':
-                $result = $stmt->insert_id ?: $stmt->affected_rows;
-                break;
+            $stmt = $this->prepare($sql);
+            if (!$stmt) {
+                return false;
+            }
+            
+            // Bind parameters if provided
+            if ($types && $params) {
+                // Validate parameter count matches type string
+                $expectedCount = strlen($types);
+                $actualCount = count($params);
                 
-            case 'UPDATE':
-            case 'DELETE':
-                $result = $stmt->affected_rows;
-                break;
-                
-            case 'SELECT':
-                $meta = $stmt->result_metadata();
-                if (!$meta) {
+                if ($expectedCount !== $actualCount) {
                     $stmt->close();
-                    return [];
+                    return $this->handleError(
+                        "Parameter count mismatch: Query expects {$expectedCount} parameters (types: '{$types}'), but {$actualCount} provided",
+                        $sql,
+                        0
+                    );
                 }
                 
-                $row = [];
-                $params = [];
-                while ($field = $meta->fetch_field()) {
-                    $params[] = &$row[$field->name];
-                }
-                
-                call_user_func_array([$stmt, 'bind_result'], $params);
-                
-                $result = [];
-                while ($stmt->fetch()) {
-                    $c = [];
-                    foreach($row as $key => $val) {
-                        $c[$key] = $val;
+                array_unshift($params, $types);
+                call_user_func_array([$stmt, 'bind_param'], $this->refValues($params));
+            }
+            
+            if (!$stmt->execute()) {
+                return $this->handleError($stmt->error, $sql, $stmt->errno);
+            }
+            
+            // Determine query type from SQL
+            $trimmedSql = trim($sql);
+            $queryType = strtoupper(substr($trimmedSql, 0, 6));
+            
+            // Special check for DELETE since it's 7 chars
+            if (strtoupper(substr($trimmedSql, 0, 7)) === 'DELETE ') {
+                $queryType = 'DELETE';
+            }
+            
+            switch ($queryType) {
+                case 'INSERT':
+                    $result = $stmt->insert_id ?: $stmt->affected_rows;
+                    break;
+                    
+                case 'UPDATE':
+                case 'DELETE':
+                    $result = $stmt->affected_rows;
+                    break;
+                    
+                case 'SELECT':
+                    $meta = $stmt->result_metadata();
+                    if (!$meta) {
+                        $stmt->close();
+                        return [];
                     }
-                    $result[] = $c;
-                }
-                break;
-                
-            default:
-                $result = $stmt->affected_rows;
-        }
-        
-        $stmt->close();
-        return $result;
+                    
+                    $row = [];
+                    $params = [];
+                    while ($field = $meta->fetch_field()) {
+                        $params[] = &$row[$field->name];
+                    }
+                    
+                    call_user_func_array([$stmt, 'bind_result'], $params);
+                    
+                    $result = [];
+                    while ($stmt->fetch()) {
+                        $c = [];
+                        foreach($row as $key => $val) {
+                            $c[$key] = $val;
+                        }
+                        $result[] = $c;
+                    }
+                    break;
+                    
+                default:
+                    $result = $stmt->affected_rows;
+            }
+            
+            $stmt->close();
+            return $result;
+
     }
 
     /**
