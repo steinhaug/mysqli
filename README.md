@@ -12,6 +12,7 @@ Mysqli Abstraction Layer v1.9.0
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v1.9.1](#v191)
     - [v1.9.0](#v190)
     - [V1.7.0](#v170)
     - [v1.6.6](#v166)
@@ -20,9 +21,6 @@ Mysqli Abstraction Layer v1.9.0
     - [v1.6.3](#v163)
     - [v1.6.2](#v162)
 - [3. Install by composer](#3-install-by-composer)
-- [4. Code Examples](#4-code-examples)
-  - [4.1 Basic Init](#41-basic-init)
-  - [4.2 Query](#42-query)
 - [5. Information](#5-information)
   - [5.1 License](#51-license)
   - [5.2 Author](#52-author)
@@ -44,9 +42,15 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 
 ## 2.1 Log
 
+### v1.9.1
+
+    - Updated documentation.
+    - Added new methods for better handling of prepared statements and result sets.
+    - Improved error handling and logging.
+
 ### v1.9.0
 
-    - Ny refaktorert klasse, nye metoder. Se docs/mysqli2_documentation.md
+    - Ny refaktorert klasse, nye metoder. Se docs/mysqli2_documentation-v1.9.md
 
 ### V1.7.0
 
@@ -75,70 +79,23 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 
 # 3. Install by composer
 
+To install the old deprecated library use composer:
+
+    composer require "steinhaug/mysqli":"~1.6."
+
+    // documentation:
+    docs/mysqli2-documentation-v1.6.md
+
 To install the library use composer:
 
-    composer require steinhaug/mysqli
+    composer require "steinhaug/mysqli":"^1.9.0"
 
-# 4. Code Examples
+    // documentation:
+    docs/mysqli2_documentation-v1.9.md
 
-## 4.1 Basic Init
+Dump autoloaders:  
 
-```php
-// Enable development mode (verbose errors)
-Mysqli2::isDev(true);
-
-// Get singleton instance with connection parameters
-$mysqli = Mysqli2::getInstance($mysql_host, $mysql_port, $mysql_user, $mysql_password, $mysql_database);
-
-// Set character encoding
-$mysqli->set_charset("utf8");
-
-// Check connection
-if ($mysqli->connect_errno) {
-    echo 'Failed to connect to MySQL: (' . $mysqli->connect_errno . ') ' . $mysqli->connect_error; 
-    exit();
-}
-```
-
-## 4.2 Query
-
-Prepared query, quick query returns associated array:
-
-    $TestID = 1;
-    $row = $mysqli->prepared_query1('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID], true);
-    if($row===null){
-        throw new Exception('prepared_query1(sql,true) error');
-    }
-
-Prepared query, results comes in array
-
-    $TestID = 5;
-    $resultset = $mysqli->prepared_query('SELECT * FROM `zzz_testtable` WHERE `TestID`=?', 'i', [$TestID]);
-    if( !count($resultset) ){
-        throw new Exception('prepared_query() returned unexpected result');
-    }
-    // echo $resultset[0]
-
-Prepared delete:
-
-    $TestID = 1;
-    $UserID = 1;
-    $affected_rows = $mysqli->prepared_query('DELETE FROM `zzz_testtable` WHERE `TestID`=? AND `user_id`=?', 'ii', [$TestID, $UserID]);
-    if (!$affected_rows) {
-        throw new Exception('prepared_query(delete from...) reported 0 deletion');
-    }
-
-Prepared insert:
-
-    $sql = [
-        'INSERT INTO `table_name` (`col_name`, `col_name_two`, `col_name_three`, `col_name_four`, `col_name_five`) VALUES (?,?,?,?,?)',
-        'issds',
-        [$variable, '2020-01-01 00:00:00', 'test/test@test.com', 1.23, '2020-01-01 00:00:00'],
-    ];
-    $InsertId = $mysqli->prepared_insert($sql);
-    if (!$InsertId) {
-        throw new Exception('prepared_insert(insert into) inserted_id error');
-    }
+    composer dump-autoload --optimize
 
 # 5. Information
 
