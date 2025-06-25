@@ -11,6 +11,7 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 - **Simplified Prepared Statements**: Streamlined syntax for common operations
 - **Smart Return Values**: Context-aware return types based on SQL operation
 - **Exception Handling**: Optional exception throwing with detailed error information
+- **Database Utilities**: Built-in methods for checking tables, collations, and charset configuration
 
 ## Installation & Setup
 
@@ -49,7 +50,7 @@ Mysqli2::isDev(false);
 
 ### execute($sql, $types, $params)
 
-Main method for executing prepared statements. Returns different values based on SQL operation type.
+Main method for executing prepared statements. Returns different values based on SQL operation type. All mysqli_sql_exception errors are automatically converted to DatabaseException.
 
 **Parameters:**
 - `$sql`: SQL query string OR array format `[$sql, $types, $params]`
@@ -206,6 +207,102 @@ $user = $mysqli->execute1(
 echo "First active user: " . $user['name'];
 ```
 
+### query($query, $resultmode)
+
+Direct query execution that overrides mysqli::query to provide consistent error handling through DatabaseException.
+
+**Parameters:**
+- `$query`: SQL query string to execute
+- `$resultmode`: Result mode (MYSQLI_STORE_RESULT or MYSQLI_USE_RESULT)
+
+**Return Values:**
+- **SELECT**: Returns mysqli_result object
+- **Other operations**: Returns true on success, false on error
+
+**Example:**
+```php
+try {
+    $result = $mysqli->query("SELECT * FROM users");
+    while ($row = $result->fetch_assoc()) {
+        echo $row['name'] . "\n";
+    }
+} catch (DatabaseException $e) {
+    echo "Query failed: " . $e->getMessage();
+}
+```
+
+## Database Utility Methods
+
+### return_charset_and_collate($c)
+
+Returns optimal charset and collation pairs based on MySQL server capabilities, with priority for regional variations.
+
+**Parameters:**
+- `$c`: Optional array to override default collations (e.g., `['utf8' => 'utf8_custom_ci']`)
+
+**Return Value:**
+- Array with charset => collation mappings
+
+**Priority Order:**
+1. Swedish collations (`utf8_swedish_ci`, `utf8mb4_swedish_ci`)
+2. Danish collations (`utf8_danish_ci`, `utf8mb4_danish_ci`) 
+3. General collations (`utf8_general_ci`, `utf8mb4_general_ci`)
+4. Custom overrides from `$c` parameter (if collation exists)
+
+**Example:**
+```php
+// Get default charsets
+$charsets = $mysqli->return_charset_and_collate();
+// Returns: ['utf8' => 'utf8_swedish_ci', 'utf8mb4' => 'utf8mb4_swedish_ci']
+
+// Override specific charset
+$charsets = $mysqli->return_charset_and_collate(['utf8' => 'utf8_unicode_ci']);
+// Uses utf8_unicode_ci if it exists, falls back to detected optimal otherwise
+```
+
+### doesCollationExist($collation)
+
+Checks if a specific collation exists in the MySQL server.
+
+**Parameters:**
+- `$collation`: Name of collation to check
+
+**Return Value:**
+- `true` if collation exists, `false` otherwise
+
+**Example:**
+```php
+if ($mysqli->doesCollationExist('utf8mb4_unicode_ci')) {
+    echo "Unicode collation available";
+} else {
+    echo "Unicode collation not supported";
+}
+```
+
+### table_exist($table_name)
+
+Checks if a table exists in the current database.
+
+**Parameters:**
+- `$table_name`: Name of the table to check
+
+**Return Value:**
+- `true` if table exists, `false` otherwise
+
+**Example:**
+```php
+if ($mysqli->table_exist('users')) {
+    echo "Users table exists";
+} else {
+    echo "Users table not found";
+}
+
+// Use in conditional table creation
+if (!$mysqli->table_exist('sessions')) {
+    $mysqli->query("CREATE TABLE sessions (...)");
+}
+```
+
 ## Error Handling
 
 ### Exception Mode (Default)
@@ -301,6 +398,24 @@ $sql = "SELECT * FROM users {$where_clause}";
 $users = $mysqli->execute($sql, $types, $params);
 ```
 
+### Charset Configuration
+
+```php
+// Check optimal charset configuration
+$charsets = $mysqli->return_charset_and_collate();
+$optimal_charset = key($charsets); // 'utf8' or 'utf8mb4'
+$optimal_collation = current($charsets);
+
+// Set connection charset
+$mysqli->set_charset($optimal_charset);
+
+// Use in table creation
+$mysqli->query("CREATE TABLE example (
+    id INT PRIMARY KEY,
+    name VARCHAR(255)
+) CHARACTER SET {$optimal_charset} COLLATE {$optimal_collation}");
+```
+
 ## Utility Methods
 
 ```php
@@ -347,6 +462,7 @@ $users = $mysqli->execute(
 2. **Enable development mode during development** for detailed debugging
 3. **Check return values** when exceptions are disabled
 4. **Use execute1() with appropriate return modes** for single-value queries
+5. **Validate table existence** before performing operations on dynamic tables
 
 ## Type Reference
 
@@ -413,4 +529,24 @@ try {
     throw $e;
 }
 $mysqli->autocommit(true);
+```
+
+### Database Setup Verification
+
+```php
+// Check charset support and table existence
+$charsets = $mysqli->return_charset_and_collate();
+echo "Using charset: " . key($charsets) . " with collation: " . current($charsets) . "\n";
+
+$required_tables = ['users', 'posts', 'sessions'];
+foreach ($required_tables as $table) {
+    if (!$mysqli->table_exist($table)) {
+        echo "Warning: Table '{$table}' does not exist\n";
+    }
+}
+
+// Verify specific collation support
+if ($mysqli->doesCollationExist('utf8mb4_unicode_520_ci')) {
+    echo "Advanced Unicode collation available\n";
+}
 ```

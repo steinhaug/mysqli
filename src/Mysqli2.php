@@ -1,22 +1,5 @@
 <?php
 
-class DatabaseException extends Exception {
-    private $sqlQuery;
-    private $sqlError;
-    private $sqlErrno;
-    
-    public function __construct($message, $query = '', $errno = 0) {
-        $this->sqlQuery = $query;
-        $this->sqlError = $message;
-        $this->sqlErrno = $errno;
-        parent::__construct($message, $errno);
-    }
-    
-    public function getSqlQuery() { return $this->sqlQuery; }
-    public function getSqlError() { return $this->sqlError; }
-    public function getSqlErrno() { return $this->sqlErrno; }
-}
-
 class Mysqli2 extends mysqli {
     private $version = '2.0.0';
     
@@ -142,11 +125,13 @@ class Mysqli2 extends mysqli {
         return false;
     }
 
-
     /**
-     * @param string $query
-     * @param int $resultmode
-     * @return mysqli_result|false
+     * Execute a MySQL query directly (overrides mysqli::query)
+     * 
+     * @param string $query SQL query to execute
+     * @param int $resultmode Result mode (MYSQLI_STORE_RESULT or MYSQLI_USE_RESULT)
+     * @return mysqli_result|bool Returns mysqli_result for SELECT queries, 
+     *                           true for other successful queries, false on failure
      */
     #[\ReturnTypeWillChange]
     public function query(string $query, $resultmode = MYSQLI_STORE_RESULT)
@@ -171,7 +156,7 @@ class Mysqli2 extends mysqli {
      *   - false on error
      */
     public function execute($sql, $types = '', $params = []) {
-
+        try {
             // Handle array format
             if (is_array($sql)) {
                 list($sql, $types, $params) = $sql;
@@ -179,7 +164,7 @@ class Mysqli2 extends mysqli {
             
             $stmt = $this->prepare($sql);
             if (!$stmt) {
-                return false;
+                return $this->handleError($this->error, $sql, $this->errno);
             }
             
             // Bind parameters if provided
@@ -202,7 +187,10 @@ class Mysqli2 extends mysqli {
             }
             
             if (!$stmt->execute()) {
-                return $this->handleError($stmt->error, $sql, $stmt->errno);
+                $error = $stmt->error;
+                $errno = $stmt->errno;
+                $stmt->close();
+                return $this->handleError($error, $sql, $errno);
             }
             
             // Determine query type from SQL
@@ -255,7 +243,10 @@ class Mysqli2 extends mysqli {
             
             $stmt->close();
             return $result;
-
+            
+        } catch (mysqli_sql_exception $e) {
+            return $this->handleError($e->getMessage(), $sql, $e->getCode());
+        }
     }
 
     /**
@@ -306,8 +297,6 @@ class Mysqli2 extends mysqli {
         return $refs;
     }
 
-
-
     /**
      * Return working collate charsets from mysql
      *
@@ -348,13 +337,12 @@ class Mysqli2 extends mysqli {
         return $collate;
     }
 
-
     /**
      * Check if a collation charset already exists in MySQL
      *
-     * @param [string] $collation Name of collation
+     * @param string $collation Name of collation
      *
-     * @return boolean True if collation charset exists and false if not found
+     * @return bool True if collation charset exists and false if not found
      */
     public function doesCollationExist($collation)
     {
@@ -373,7 +361,8 @@ class Mysqli2 extends mysqli {
     /**
      * Checks if the table exists
      *
-     * @return Returns TRUE if table exists, else FALSE if failure or not found.
+     * @param string $table_name Name of the table to check
+     * @return bool Returns TRUE if table exists, else FALSE if failure or not found.
      */
     public function table_exist($table_name)
     {
@@ -393,5 +382,4 @@ class Mysqli2 extends mysqli {
             return true;
         }
     }
-
 }
