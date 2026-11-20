@@ -10,6 +10,7 @@ class Mysqli2 extends mysqli {
     
     private static $useExceptions = true;
     private $lastError = null;
+    private $resultFilter = null;
 
     /**
      * @param string|null $host
@@ -136,11 +137,128 @@ class Mysqli2 extends mysqli {
     #[\ReturnTypeWillChange]
     public function query(string $query, $resultmode = MYSQLI_STORE_RESULT)
     {
+        // Consume the filter up front so a failed query never leaks it to the next one
+        $filter = $this->resultFilter;
+        $this->resultFilter = null;
+
         if (!$this->real_query($query)) {
             return $this->handleError($this->error, $query, $this->errno);
         }
-        
-        return new \mysqli_result($this);
+
+        $result = new \mysqli_result($this);
+
+        // No result set (INSERT/UPDATE/DDL): nothing to filter
+        if ($filter === null || !$this->field_count) {
+            return $result;
+        }
+        return $this->applyResultFilter($result, $filter[0], $filter[1]);
+    }
+
+    /**
+     * EWS compat: run a query and return a single value/row
+     *
+     * @param string $query
+     * @param mixed $return
+     *   'insert_id': last insert id
+     *   0:           first column of first row
+     *   int > 0:     that column of first row
+     *   null:        first row as assoc array
+     * @return mixed null when there are no rows
+     */
+    public function query1($query, $return = null)
+    {
+        if (!$this->real_query($query)) {
+            return $this->handleError($this->error, $query, $this->errno);
+        }
+
+        if ($return === 'insert_id') {
+            return $this->insert_id;
+        }
+        if (!$this->field_count) {
+            return null;
+        }
+
+        $result = new \mysqli_result($this);
+        if (is_numeric($return)) {
+            $row = $result->fetch_row();
+            return $row === null ? null : $row[(int)$return];
+        }
+        return $result->fetch_assoc();
+    }
+
+    /**
+     * Chainable: shape the result of the next query() call.
+     * Example: $mysqli->result('array', '[int]')->query('SELECT DISTINCT(UserID) FROM t');
+     *
+     * @param string $mode 'array', 'assoc' or 'text'
+     * @param string|int|null $type
+     *   array: null | 'int' | '[int]' | 'int=>assoc' | 'int=>string' | 'string=>string' | 'int=>*' | 'string=>*'
+     *   assoc: null | 'int=>assoc' | 'int=>key::<column>'
+     *   text:  null (all columns) | column index
+     * @return $this
+     */
+    public function result($mode, $type = null)
+    {
+        $this->resultFilter = [$mode, $type];
+        return $this;
+    }
+
+    /**
+     * Port of the Mysqli2 v1.6 (EWS) result filter
+     *
+     * @return array|string|mysqli_result
+     */
+    private function applyResultFilter(mysqli_result $result, $mode, $type)
+    {
+        if ($mode === 'assoc') {
+            $out = [];
+            while ($row = $result->fetch_assoc()) {
+                if ($type === 'int=>assoc') {
+                    $out[reset($row)] = $row;
+                } elseif (is_string($type) && str_starts_with($type, 'int=>key::')) {
+                    $out[$row[substr($type, 10)]] = $row;
+                } else {
+                    $out[] = $row;
+                }
+            }
+            return $out;
+        }
+
+        if ($mode === 'text') {
+            $out = '';
+            while ($row = $result->fetch_row()) {
+                $out .= ($type !== null ? $row[(int)$type] : implode(', ', $row)) . "\n";
+            }
+            return $out;
+        }
+
+        if ($mode === 'array') {
+            $out = [];
+            while ($row = $result->fetch_row()) {
+                if ($type === null) {
+                    $out[] = $result->field_count == 1 ? $row[0] : $row;
+                    continue;
+                }
+                switch ($type) {
+                    case 'int=>assoc':     $value = $row; break;
+                    case 'int':            $value = (int)$row[0]; break;
+                    case '[int]':          $value = [(int)$row[0]]; break;
+                    case 'int=>string':
+                    case 'string=>string': $value = (string)$row[1]; break;
+                    default:               $value = $row[0];
+                }
+                if (str_starts_with($type, 'int=>')) {
+                    $out[(int)$row[0]] = $value;
+                } elseif (str_starts_with($type, 'string=>')) {
+                    $out[(string)$row[0]] = $value;
+                } else {
+                    $out[] = $value;
+                }
+            }
+            return $out;
+        }
+
+        return $result;
     }
 
     /**
@@ -286,6 +404,46 @@ class Mysqli2 extends mysqli {
     }
 
     /**
+     * EWS compat: alias for execute()
+     */
+    public function prepared_query($sql, $types = '', $params = []) {
+        return $this->execute($sql, $types, $params);
+    }
+
+    /**
+     * EWS compat: alias for execute() (INSERT returns insert_id, or affected rows)
+     */
+    public function prepared_insert($sql, $types = '', $params = []) {
+        return $this->execute($sql, $types, $params);
+    }
+
+    /**
+     * EWS compat: single-result prepared query
+     *
+     * @param mixed $return 0: first column of first row, true: first row, 'default': all rows
+     * @param mixed $onEmpty Returned when there are no rows, or the query failed with exceptions disabled
+     * @return mixed
+     */
+    public function prepared_query1($sql, $types = '', $params = [], $return = 'default', $onEmpty = null) {
+        if ($types && !is_array($params)) {
+            $params = [$params];
+        }
+
+        $result = $this->execute($sql, $types, $params);
+
+        if (!is_array($result) || !count($result)) {
+            return $onEmpty;
+        }
+        if ($return === 0) {
+            return reset($result[0]);
+        }
+        if ($return === true) {
+            return $result[0];
+        }
+        return $result;
+    }
+
+    /**
      * @param array $arr
      * @return array
      */
@@ -381,5 +539,65 @@ class Mysqli2 extends mysqli {
         } else {
             return true;
         }
+    }
+
+    /**
+     * Checks if a table has an index with the given name
+     *
+     * @return bool
+     */
+    public function index_exist($table, $indexName)
+    {
+        $query = 'SHOW INDEX FROM `' . $table . '`';
+        if (!$this->real_query($query)) {
+            return $this->handleError($this->error, $query, $this->errno);
+        }
+
+        $result = new mysqli_result($this);
+        while ($row = $result->fetch_assoc()) {
+            if ($row['Key_name'] == $indexName && $row['Seq_in_index'] == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if a column exists in a table
+     *
+     * @return bool
+     */
+    public function col_exists($table, $col_name)
+    {
+        $query = 'SHOW COLUMNS FROM `' . $table . '`';
+        if (!$this->real_query($query)) {
+            return $this->handleError($this->error, $query, $this->errno);
+        }
+
+        $result = new mysqli_result($this);
+        while ($row = $result->fetch_assoc()) {
+            if ($row['Field'] == $col_name) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Drops a column if it exists
+     *
+     * @return bool True if the column was dropped, false if it did not exist (or the drop failed with exceptions disabled)
+     */
+    public function drop_col_if_exists($table, $col)
+    {
+        if (!$this->col_exists($table, $col)) {
+            return false;
+        }
+
+        $query = 'ALTER TABLE `' . $table . '` DROP COLUMN `' . $col . '`';
+        if (!$this->real_query($query)) {
+            return $this->handleError($this->error, $query, $this->errno);
+        }
+        return true;
     }
 }
