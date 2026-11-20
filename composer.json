@@ -27,11 +27,11 @@
     ],
     "require": {
         "php": ">=8.0.0",
-        "ext-mbstring": "*"
+        "ext-mbstring": "*",
+        "steinhaug/sqlbuddy": "^1.4"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "*",
-        "steinhaug/sqlbuddy": "*",
         "steinhaug/uarpc": "*"
     },
     "autoload": {

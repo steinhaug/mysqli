@@ -1,6 +1,6 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v2.0.1
+Mysqli Abstraction Layer v2.0.2
 
 
 <div class="show_none">
@@ -12,6 +12,7 @@ Mysqli Abstraction Layer v2.0.1
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v2.0.2](#v202)
     - [v2.0.1](#v201)
     - [v2.0.0](#v200)
     - [v1.9.1](#v191)
@@ -44,6 +45,15 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 # 2. Version History
 
 ## 2.1 Log
+
+### v2.0.2
+
+    - steinhaug/sqlbuddy ^1.4 is now a dependency.
+    - New: Mysqli2::setPrefix($prefix) and t($table), t('eu_news') gives `{prefix}eu_news`.
+    - New: insert($table, $sqlbuddy) returns insert_id, update($table, $sqlbuddy, 'id=?', [$id]) returns affected rows. Both run as prepared statements.
+    - New: count($table, $where, $types, $params) and exists($table, $where, $types, $params), without fetching rows.
+    - New: rows($sql) and row($sql), short for result('assoc')->query($sql) and query1($sql).
+    - insert, update, count and exists take the table name without prefix.
 
 ### v2.0.1
 
@@ -131,6 +141,7 @@ Mysqli2::setErrorHandler(function ($error, $query, $errno) {
 });
 $mysqli = Mysqli2::getInstance($mysql_host, $mysql_port, $mysql_user, $mysql_password, $mysql_database);
 $mysqli->set_charset('utf8mb4');
+Mysqli2::setPrefix($sw_dp); // optional: table prefix for t(), insert(), update(), count(), exists()
 ```
 
 - Exceptions are on by default: a failed connection or query throws `DatabaseException` (`getSqlError()`, `getSqlQuery()`, `getSqlErrno()`), so no `connect_errno` check is needed.

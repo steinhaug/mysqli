@@ -1,7 +1,7 @@
 <?php
 // EWS (Mysqli2 v1.6) compatibility checks. Run: php tests/EwsCompatTest.php
 chdir(__DIR__ . '/..');
-require 'src/DatabaseException.php'; require 'src/Mysqli2.php'; require 'credentials.php';
+require 'vendor/autoload.php'; require 'credentials.php';
 $db = Mysqli2::getInstance($mysql_host, $mysql_port, $mysql_user, $mysql_password, $mysql_database);
 $t = 'zzz_ews_check';
 $db->query("DROP TABLE IF EXISTS $t");
@@ -83,5 +83,26 @@ $saved = (new ReflectionProperty('Mysqli2', 'options'))->getValue();
 Mysqli2::setOptions(['dbname' => '']);
 try { new Mysqli2(); $ok('missing config throws', false); } catch (DatabaseException $e) { $ok('missing config throws', strpos($e->getMessage(), 'must be set') !== false); }
 Mysqli2::setOptions($saved);
+
+// v2.0.2 helpers
+Mysqli2::setPrefix('zzz_');
+$ok('t()', $db->t('ews_check') === "`$t`");
+$sql = new sqlbuddy;
+$sql->que('uid', 11, 'int');
+$sql->que('name', "it's", 'string');
+$newId = $db->insert('ews_check', $sql);
+$ok('insert returns insert_id', is_int($newId) && $newId > 0 && $db->row("SELECT * FROM $t WHERE id = $newId")['name'] === "it's");
+$sql = new sqlbuddy;
+$sql->que('name', 'upd', 'string');
+$ok('update returns affected rows', $db->update('ews_check', $sql, 'id=? AND uid=?', [$newId, 11]) === 1);
+$ok('update applied', $db->row("SELECT name FROM $t WHERE id = $newId") === ['name' => 'upd']);
+$total = $db->get_row_count($t);
+$ok('count all', $db->count('ews_check') === $total);
+$ok('count where', $db->count('ews_check', 'uid = ?', 'i', [11]) === 1);
+$ok('exists yes (scalar param)', $db->exists('ews_check', 'uid = ?', 'i', 11) === true);
+$ok('exists no', $db->exists('ews_check', 'uid = ?', 'i', [999]) === false);
+$ok('rows', count($db->rows("SELECT * FROM $t")) === $total && isset($db->rows("SELECT * FROM $t")[0]['name']));
+$ok('row empty', $db->row("SELECT * FROM $t WHERE id = 999") === null);
+Mysqli2::setPrefix('');
 
 $db->query("DROP TABLE $t");

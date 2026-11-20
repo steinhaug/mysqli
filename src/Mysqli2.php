@@ -1,7 +1,7 @@
 <?php
 
 class Mysqli2 extends mysqli {
-    private $version = '2.0.1';
+    private $version = '2.0.2';
     
     private static $devMode = false; // Default: production
 
@@ -11,6 +11,7 @@ class Mysqli2 extends mysqli {
     private static $useExceptions = true;
     private static $errorHandler = null;
     private static $inErrorHandler = false;
+    private static $prefix = '';
     private $lastError = null;
     private $resultFilter = null;
 
@@ -98,6 +99,16 @@ class Mysqli2 extends mysqli {
      */
     public static function setErrorHandler(?callable $fn) {
         self::$errorHandler = $fn;
+    }
+
+    /**
+     * Table prefix used by t(), insert(), update(), count() and exists()
+     *
+     * @param string $prefix
+     * @return void
+     */
+    public static function setPrefix($prefix) {
+        self::$prefix = (string)$prefix;
     }
     
     /**
@@ -519,6 +530,102 @@ class Mysqli2 extends mysqli {
     public function doesCollationExist($collation)
     {
         return (bool)$this->execute1('SELECT COUNT(*) FROM information_schema.collations WHERE collation_name = ?', 's', [$collation], 0);
+    }
+
+    /**
+     * Prefixed, quoted table name: t('eu_news') gives `{prefix}eu_news`
+     *
+     * @param string $table Table name without prefix
+     * @return string
+     */
+    public function t($table)
+    {
+        return $this->quoteIdent(self::$prefix . $table);
+    }
+
+    /**
+     * INSERT the values queued in a sqlbuddy object, as a prepared statement
+     *
+     * @param string $table Table name without prefix
+     * @param sqlbuddy $sql
+     * @return int|false insert_id (affected rows if the table has no AUTO_INCREMENT)
+     */
+    public function insert($table, $sql)
+    {
+        // prepared_build() adds the backticks itself
+        return $this->execute($sql->prepared_build('insert', self::$prefix . $table));
+    }
+
+    /**
+     * UPDATE with the values queued in a sqlbuddy object, as a prepared statement.
+     * Example: $mysqli->update('eu_news', $sql, 'id=?', [$id]);
+     *
+     * @param string $table Table name without prefix
+     * @param sqlbuddy $sql
+     * @param string $where WHERE clause with ? placeholders
+     * @param array $params Values for the placeholders, bound as i (int), d (float) or s (everything else)
+     * @return int|false Affected rows
+     */
+    public function update($table, $sql, $where, array $params = [])
+    {
+        [$query, $types, $values] = $sql->prepared_build('update', self::$prefix . $table, $where);
+        foreach ($params as $p) {
+            $types .= is_int($p) ? 'i' : (is_float($p) ? 'd' : 's');
+            $values[] = $p;
+        }
+        return $this->execute($query, $types, $values);
+    }
+
+    /**
+     * COUNT(*) without fetching the rows
+     *
+     * @param string $table Table name without prefix
+     * @param string $where Optional WHERE clause with ? placeholders
+     * @return int|false
+     */
+    public function count($table, $where = '', $types = '', $params = [])
+    {
+        $query = 'SELECT COUNT(*) FROM ' . $this->t($table) . ($where !== '' ? ' WHERE ' . $where : '');
+        $n = $this->execute1($query, $types, $params, 0);
+        return $n === false ? false : (int)$n;
+    }
+
+    /**
+     * Does at least one row match?
+     *
+     * @param string $table Table name without prefix
+     * @param string $where WHERE clause with ? placeholders
+     * @return bool
+     */
+    public function exists($table, $where, $types = '', $params = [])
+    {
+        if ($types && !is_array($params)) {
+            $params = [$params];
+        }
+        $result = $this->execute('SELECT 1 FROM ' . $this->t($table) . ' WHERE ' . $where . ' LIMIT 1', $types, $params);
+        return is_array($result) && count($result) > 0;
+    }
+
+    /**
+     * All rows as assoc arrays, short for result('assoc')->query($sql)
+     *
+     * @param string $sql
+     * @return array|false
+     */
+    public function rows($sql)
+    {
+        return $this->result('assoc')->query($sql);
+    }
+
+    /**
+     * First row as assoc array (null if none), short for query1($sql)
+     *
+     * @param string $sql
+     * @return array|null|false
+     */
+    public function row($sql)
+    {
+        return $this->query1($sql);
     }
 
     /**
