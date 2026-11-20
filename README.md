@@ -1,6 +1,8 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v2.0.2
+Mysqli Abstraction Layer v2.1.0
+
+Documentation: [docs/mysqli2_documentation-v2.1.md](docs/mysqli2_documentation-v2.1.md)
 
 
 <div class="show_none">
@@ -12,6 +14,7 @@ Mysqli Abstraction Layer v2.0.2
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v2.1.0](#v210)
     - [v2.0.2](#v202)
     - [v2.0.1](#v201)
     - [v2.0.0](#v200)
@@ -45,6 +48,10 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 # 2. Version History
 
 ## 2.1 Log
+
+### v2.1.0
+
+    - New documentation: docs/mysqli2_documentation-v2.1.md, including migration guides from v1.6 (EWS) and v1.9/v2.0.0.
 
 ### v2.0.2
 
@@ -124,7 +131,10 @@ To install the v1.9 library use composer:
 
 To install the library use composer:
 
-    composer require "steinhaug/mysqli":"^2.0"
+    composer require "steinhaug/mysqli":"^2.1"
+
+    // documentation:
+    docs/mysqli2_documentation-v2.1.md
 
 Dump autoloaders:  
 
