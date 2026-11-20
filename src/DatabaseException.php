@@ -5,11 +5,17 @@ class DatabaseException extends Exception {
     private $sqlError;
     private $sqlErrno;
     
-    public function __construct($message, $query = '', $errno = 0) {
+    /**
+     * @param string $error Raw MySQL error (getSqlError())
+     * @param string $query
+     * @param int $errno
+     * @param string|null $message Exception message, defaults to $error
+     */
+    public function __construct($error, $query = '', $errno = 0, $message = null) {
         $this->sqlQuery = $query;
-        $this->sqlError = $message;
+        $this->sqlError = $error;
         $this->sqlErrno = $errno;
-        parent::__construct($message, $errno);
+        parent::__construct($message ?? $error, (int)$errno);
     }
     
     public function getSqlQuery() { return $this->sqlQuery; }

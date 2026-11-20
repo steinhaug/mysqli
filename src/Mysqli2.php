@@ -1,7 +1,7 @@
 <?php
 
 class Mysqli2 extends mysqli {
-    private $version = '2.0.0';
+    private $version = '2.0.1';
     
     private static $devMode = false; // Default: production
 
@@ -9,6 +9,8 @@ class Mysqli2 extends mysqli {
     protected static $options = [];
     
     private static $useExceptions = true;
+    private static $errorHandler = null;
+    private static $inErrorHandler = false;
     private $lastError = null;
     private $resultFilter = null;
 
@@ -34,7 +36,7 @@ class Mysqli2 extends mysqli {
         }
         
         if (!self::$instance) {
-            self::$instance = new self();
+            self::$instance = new static();
         }
         return self::$instance;
     }
@@ -56,19 +58,22 @@ class Mysqli2 extends mysqli {
     public function __construct() {
         $o = self::$options;
         
-        // Sett mysqli_report basert på klasse-modus
-        mysqli_report(self::$devMode ? 
-            MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT : 
-            MYSQLI_REPORT_OFF
-        );
-        
+        // Errors are reported by handleError() only, so dev and prod behave the same
+        mysqli_report(MYSQLI_REPORT_OFF);
+
+        if (empty($o['user']) || empty($o['dbname'])) {
+            $error = 'Mysqli2: user and database must be set, use getInstance() or setOptions()';
+            $this->handleError($error);
+            throw new DatabaseException($error); // config error: never continue unconnected
+        }
+
         @parent::__construct(
-            isset($o['host']) ? $o['host'] : 'localhost',
-            isset($o['user']) ? $o['user'] : 'root',
-            isset($o['pass']) ? $o['pass'] : '',
-            isset($o['dbname']) ? $o['dbname'] : 'world',
-            isset($o['port']) ? $o['port'] : 3306,
-            isset($o['sock']) ? $o['sock'] : false
+            $o['host'] ?? 'localhost',
+            $o['user'],
+            $o['pass'] ?? '',
+            $o['dbname'],
+            $o['port'] ?? 3306,
+            empty($o['sock']) ? null : $o['sock']
         );
         
         if (mysqli_connect_errno()) {
@@ -82,6 +87,17 @@ class Mysqli2 extends mysqli {
      */
     public static function setUseExceptions($use) {
         self::$useExceptions = $use;
+    }
+
+    /**
+     * Called by handleError() with ($error, $query, $errno) before it throws or returns false,
+     * so every database error can be logged in one place.
+     *
+     * @param callable|null $fn null removes the handler
+     * @return void
+     */
+    public static function setErrorHandler(?callable $fn) {
+        self::$errorHandler = $fn;
     }
     
     /**
@@ -113,16 +129,32 @@ class Mysqli2 extends mysqli {
      * @return false
      */
     private function handleError($error, $query = '', $errno = 0) {
+        // Guard: a handler that logs to the database must not loop on its own errors
+        if (self::$errorHandler && !self::$inErrorHandler) {
+            self::$inErrorHandler = true;
+            try {
+                (self::$errorHandler)($error, $query, $errno);
+            } catch (\Throwable $e) {
+                // A failing logger must not replace the original error
+                error_log('Mysqli2 error handler failed: ' . $e->getMessage());
+            } finally {
+                self::$inErrorHandler = false;
+            }
+        }
+
+        // Set after the handler, so errors from the handler's own queries don't overwrite it
         $this->lastError = [
             'error' => $error,
             'query' => $query,
             'errno' => $errno
         ];
-        
+
         if (self::$useExceptions) {
-            throw new DatabaseException($error, $query, $errno);
+            // Dev shows the SQL in the message; prod keeps it in getSqlQuery() only
+            $message = self::$devMode && $query !== '' ? $error . ' | SQL: ' . $query : $error;
+            throw new DatabaseException($error, $query, $errno, $message);
         }
-        
+
         return false;
     }
 
@@ -145,10 +177,13 @@ class Mysqli2 extends mysqli {
             return $this->handleError($this->error, $query, $this->errno);
         }
 
-        $result = new \mysqli_result($this);
+        // No result set (INSERT/UPDATE/DDL): true, like mysqli::query()
+        if (!$this->field_count) {
+            return true;
+        }
 
-        // No result set (INSERT/UPDATE/DDL): nothing to filter
-        if ($filter === null || !$this->field_count) {
+        $result = new \mysqli_result($this);
+        if ($filter === null) {
             return $result;
         }
         return $this->applyResultFilter($result, $filter[0], $filter[1]);
@@ -311,54 +346,30 @@ class Mysqli2 extends mysqli {
                 return $this->handleError($error, $sql, $errno);
             }
             
-            // Determine query type from SQL
-            $trimmedSql = trim($sql);
-            $queryType = strtoupper(substr($trimmedSql, 0, 6));
-            
-            // Special check for DELETE since it's 7 chars
-            if (strtoupper(substr($trimmedSql, 0, 7)) === 'DELETE ') {
-                $queryType = 'DELETE';
+            // Ask the statement, not the SQL text: also covers SHOW, WITH, (SELECT ...) and leading comments
+            $meta = $stmt->result_metadata();
+            if (!$meta) {
+                // No result set: INSERT gives its id (insert_id is 0 for UPDATE/DELETE), else affected rows
+                $result = $stmt->insert_id ?: $stmt->affected_rows;
+            } else {
+                $row = [];
+                $params = [];
+                while ($field = $meta->fetch_field()) {
+                    $params[] = &$row[$field->name];
+                }
+
+                call_user_func_array([$stmt, 'bind_result'], $params);
+
+                $result = [];
+                while ($stmt->fetch()) {
+                    $c = [];
+                    foreach ($row as $key => $val) {
+                        $c[$key] = $val;
+                    }
+                    $result[] = $c;
+                }
             }
-            
-            switch ($queryType) {
-                case 'INSERT':
-                    $result = $stmt->insert_id ?: $stmt->affected_rows;
-                    break;
-                    
-                case 'UPDATE':
-                case 'DELETE':
-                    $result = $stmt->affected_rows;
-                    break;
-                    
-                case 'SELECT':
-                    $meta = $stmt->result_metadata();
-                    if (!$meta) {
-                        $stmt->close();
-                        return [];
-                    }
-                    
-                    $row = [];
-                    $params = [];
-                    while ($field = $meta->fetch_field()) {
-                        $params[] = &$row[$field->name];
-                    }
-                    
-                    call_user_func_array([$stmt, 'bind_result'], $params);
-                    
-                    $result = [];
-                    while ($stmt->fetch()) {
-                        $c = [];
-                        foreach($row as $key => $val) {
-                            $c[$key] = $val;
-                        }
-                        $result[] = $c;
-                    }
-                    break;
-                    
-                default:
-                    $result = $stmt->affected_rows;
-            }
-            
+
             $stmt->close();
             return $result;
             
@@ -386,7 +397,10 @@ class Mysqli2 extends mysqli {
         }
         
         $result = $this->execute($sql, $types, $params);
-        
+        if ($result === false) {
+            return false; // already reported by execute()
+        }
+
         if (!$result || !is_array($result) || !count($result)) {
             if ($return === true) {
                 return null;
@@ -504,41 +518,42 @@ class Mysqli2 extends mysqli {
      */
     public function doesCollationExist($collation)
     {
-        $this->real_query("SHOW COLLATION LIKE '" . $collation . "'");
-        $res = new mysqli_result($this);
-
-        while ($row = $res->fetch_array(MYSQLI_ASSOC)) {
-            if (in_array($row['Collation'], [$collation])) {
-                return true;
-            }
-        }
-
-        return false;
+        return (bool)$this->execute1('SELECT COUNT(*) FROM information_schema.collations WHERE collation_name = ?', 's', [$collation], 0);
     }
 
     /**
-     * Checks if the table exists
+     * Quote an identifier (table/column name) for use in SQL
      *
-     * @param string $table_name Name of the table to check
-     * @return bool Returns TRUE if table exists, else FALSE if failure or not found.
+     * @param string $name
+     * @return string
      */
-    public function table_exist($table_name)
+    private function quoteIdent($name)
     {
-        $query = "SELECT COUNT(*)
-        FROM information_schema.tables 
-        WHERE table_schema = '" . self::$options['dbname'] . "' 
-        AND table_name = '" . $table_name . "'";
+        return '`' . str_replace('`', '``', $name) . '`';
+    }
 
-        if( !$this->real_query($query) )
-            return $this->handleError($this->error, $query, $this->errno);
+    /**
+     * @param string $table
+     * @return int Row count
+     */
+    public function get_row_count($table)
+    {
+        // COUNT(*) is exact on every engine; InnoDB scans its smallest index for it
+        return (int)$this->query1('SELECT COUNT(*) FROM ' . $this->quoteIdent($table), 0);
+    }
 
-        $result = new mysqli_result($this);
-        $row = $result->fetch_row();
-        if (!$row[0]) {
-            return false;
-        } else {
-            return true;
-        }
+    /**
+     * Checks if the table exists in the current database
+     *
+     * @param string $table
+     * @return bool
+     */
+    public function table_exist($table)
+    {
+        return (bool)$this->execute1(
+            'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
+            's', [$table], 0
+        );
     }
 
     /**
@@ -548,18 +563,10 @@ class Mysqli2 extends mysqli {
      */
     public function index_exist($table, $indexName)
     {
-        $query = 'SHOW INDEX FROM `' . $table . '`';
-        if (!$this->real_query($query)) {
-            return $this->handleError($this->error, $query, $this->errno);
-        }
-
-        $result = new mysqli_result($this);
-        while ($row = $result->fetch_assoc()) {
-            if ($row['Key_name'] == $indexName && $row['Seq_in_index'] == 1) {
-                return true;
-            }
-        }
-        return false;
+        return (bool)$this->execute1(
+            'SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ? AND seq_in_index = 1',
+            'ss', [$table, $indexName], 0
+        );
     }
 
     /**
@@ -569,18 +576,10 @@ class Mysqli2 extends mysqli {
      */
     public function col_exists($table, $col_name)
     {
-        $query = 'SHOW COLUMNS FROM `' . $table . '`';
-        if (!$this->real_query($query)) {
-            return $this->handleError($this->error, $query, $this->errno);
-        }
-
-        $result = new mysqli_result($this);
-        while ($row = $result->fetch_assoc()) {
-            if ($row['Field'] == $col_name) {
-                return true;
-            }
-        }
-        return false;
+        return (bool)$this->execute1(
+            'SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+            'ss', [$table, $col_name], 0
+        );
     }
 
     /**
@@ -593,11 +592,6 @@ class Mysqli2 extends mysqli {
         if (!$this->col_exists($table, $col)) {
             return false;
         }
-
-        $query = 'ALTER TABLE `' . $table . '` DROP COLUMN `' . $col . '`';
-        if (!$this->real_query($query)) {
-            return $this->handleError($this->error, $query, $this->errno);
-        }
-        return true;
+        return (bool)$this->query('ALTER TABLE ' . $this->quoteIdent($table) . ' DROP COLUMN ' . $this->quoteIdent($col));
     }
 }

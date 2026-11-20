@@ -1,6 +1,6 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v1.9.0
+Mysqli Abstraction Layer v2.0.1
 
 
 <div class="show_none">
@@ -12,6 +12,8 @@ Mysqli Abstraction Layer v1.9.0
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v2.0.1](#v201)
+    - [v2.0.0](#v200)
     - [v1.9.1](#v191)
     - [v1.9.0](#v190)
     - [V1.7.0](#v170)
@@ -21,6 +23,7 @@ Mysqli Abstraction Layer v1.9.0
     - [v1.6.3](#v163)
     - [v1.6.2](#v162)
 - [3. Install by composer](#3-install-by-composer)
+- [4. Initialization](#4-initialization)
 - [5. Information](#5-information)
   - [5.1 License](#51-license)
   - [5.2 Author](#52-author)
@@ -41,6 +44,22 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 # 2. Version History
 
 ## 2.1 Log
+
+### v2.0.1
+
+    - mysqli_report() is always MYSQLI_REPORT_OFF, all errors go through handleError(). Dev/prod only decides if the SQL is shown in the exception message.
+    - New: Mysqli2::setErrorHandler(callable $fn), called with ($error, $query, $errno) for every database error, with or without exceptions.
+    - New: get_row_count($table).
+    - getInstance() uses new static(), the class can be extended.
+    - query() returns true for queries without a result set (INSERT/UPDATE/DDL), like mysqli::query().
+    - execute() detects result sets with result_metadata(), SHOW, WITH, (SELECT ...) and leading comments now work.
+    - Constructor throws if user or database is missing, no more silent root/world defaults.
+    - table_exist, index_exist, col_exists and doesCollationExist use DATABASE() and prepared statements.
+    - DatabaseException: getSqlError() always holds the raw MySQL error.
+
+### v2.0.0
+
+    - EWS compliance
 
 ### v1.9.1
 
@@ -86,16 +105,37 @@ To install the old deprecated library use composer:
     // documentation:
     docs/mysqli2-documentation-v1.6.md
 
-To install the library use composer:
+To install the v1.9 library use composer:
 
     composer require "steinhaug/mysqli":"^1.9.0"
 
     // documentation:
     docs/mysqli2_documentation-v1.9.md
 
+To install the library use composer:
+
+    composer require "steinhaug/mysqli":"^2.0"
+
 Dump autoloaders:  
 
     composer dump-autoload --optimize
+
+# 4. Initialization
+
+```php
+require 'vendor/autoload.php';
+
+Mysqli2::isDev(true); // dev: SQL in exception messages. Leave out in production.
+Mysqli2::setErrorHandler(function ($error, $query, $errno) {
+    error_log("Mysqli2 [$errno] $error | $query");
+});
+$mysqli = Mysqli2::getInstance($mysql_host, $mysql_port, $mysql_user, $mysql_password, $mysql_database);
+$mysqli->set_charset('utf8mb4');
+```
+
+- Exceptions are on by default: a failed connection or query throws `DatabaseException` (`getSqlError()`, `getSqlQuery()`, `getSqlErrno()`), so no `connect_errno` check is needed.
+- `Mysqli2::setUseExceptions(false)` makes failing methods return `false` instead, read the error with `$mysqli->getLastError()`.
+- The error handler runs for every error, also when exceptions are off or caught. If it throws, the original error still wins and the handler's error goes to `error_log()`.
 
 # 5. Information
 

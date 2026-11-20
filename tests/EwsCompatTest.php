@@ -34,7 +34,7 @@ $ok('text col 1', $db->result('text', 1)->query("SELECT id, name FROM $t ORDER B
 $ok('filter resets', $db->query("SELECT 1") instanceof mysqli_result);
 try { $db->result('array')->query("SELECT * FROM nope_xyz"); } catch (DatabaseException $e) {}
 $ok('filter cleared after failed query', $db->query("SELECT 1") instanceof mysqli_result);
-$ok('filter skipped on INSERT', $db->result('array')->query("INSERT INTO $t (uid, name) VALUES (1, 'd')") !== []);
+$ok('query() INSERT returns true (filter skipped)', $db->result('array')->query("INSERT INTO $t (uid, name) VALUES (1, 'd')") === true);
 $ok("query1 insert_id", $db->query1("INSERT INTO $t (uid, name) VALUES (5, 'e')", "insert_id") === 5);
 $ok("query1 0", $db->query1("SELECT name FROM $t WHERE id = 3", 0) === "c");
 $ok("query1 0 empty", $db->query1("SELECT name FROM $t WHERE id = 99", 0) === null);
@@ -43,4 +43,45 @@ $ok("query1 col empty", $db->query1("SELECT id, name FROM $t WHERE id = 99", 1) 
 $ok("query1 assoc", $db->query1("SELECT * FROM $t WHERE id = 1")["name"] === "a");
 $ok("query1 assoc empty", $db->query1("SELECT * FROM $t WHERE id = 99") === null);
 try { $db->query1("SELECT * FROM nope_xyz"); $ok("query1 throws", false); } catch (DatabaseException $e) { $ok("query1 throws", true); }
+$ok("get_row_count", $db->get_row_count($t) === 5);
+
+// v2.0.1
+$ok('report mode OFF even in dev', (function () { Mysqli2::isDev(true); new Mysqli2(); Mysqli2::isDev(false); return (new mysqli_driver())->report_mode === MYSQLI_REPORT_OFF; })());
+$ok('query() UPDATE returns true', $db->query("UPDATE $t SET name = name") === true);
+$ok('execute UPDATE after INSERT gives affected rows, not insert_id', $db->execute("UPDATE $t SET uid = ? WHERE id = ?", 'ii', [8, 1]) === 1);
+$ok('execute SHOW', count($db->execute("SHOW COLUMNS FROM $t")) === 3);
+$ok('execute WITH', $db->execute("WITH x AS (SELECT name FROM $t WHERE id = ?) SELECT * FROM x", 'i', [1]) === [['name' => 'a']]);
+$ok('execute leading comment', count($db->execute("/* c */ SELECT id FROM $t")) === 5);
+$ok('execute DELETE', $db->execute("DELETE FROM $t WHERE id = ?", 'i', [5]) === 1);
+$ok('doesCollationExist', $db->doesCollationExist('utf8mb4_general_ci') && !$db->doesCollationExist("x' OR '1'='1"));
+$ok('table_exist injection-safe', $db->table_exist("x' OR '1'='1") === false);
+
+$calls = [];
+Mysqli2::setErrorHandler(function ($error, $query, $errno) use (&$calls, $db) {
+    $calls[] = [$query, $errno];
+    $db->query('SELECT * FROM handler_nope'); // fails inside the handler: must not recurse
+});
+try { $db->query("SELECT * FROM nope_a"); } catch (DatabaseException $e) {}
+$ok('error handler: called once, no recursion', count($calls) === 1 && $calls[0] === ['SELECT * FROM nope_a', 1146]);
+$ok('lastError is the original error, not the handler\'s', $db->getLastError()['query'] === 'SELECT * FROM nope_a');
+Mysqli2::setErrorHandler(function ($e, $q, $n) use (&$calls) { $calls[] = $q; });
+$calls = [];
+Mysqli2::setUseExceptions(false);
+$ok('error handler: called with exceptions off', $db->execute("SELECT * FROM nope_b") === false && $calls === ["SELECT * FROM nope_b"]);
+$ok('execute1 reports a failed query once', $db->execute1("SELECT * FROM nope_c") === false && count($calls) === 2);
+Mysqli2::setUseExceptions(true);
+Mysqli2::setErrorHandler(null);
+
+try { $db->query("SELECT * FROM nope_d"); } catch (DatabaseException $e) {}
+$ok('prod: SQL not in message', strpos($e->getMessage(), 'SQL:') === false &&$e->getSqlQuery() === 'SELECT * FROM nope_d');
+Mysqli2::isDev(true);
+try { $db->query("SELECT * FROM nope_e"); } catch (DatabaseException $e) {}
+Mysqli2::isDev(false);
+$ok('dev: SQL in message, getSqlError raw', strpos($e->getMessage(), 'SQL: SELECT * FROM nope_e') !== false && strpos($e->getSqlError(), 'SQL:') === false);
+
+$saved = (new ReflectionProperty('Mysqli2', 'options'))->getValue();
+Mysqli2::setOptions(['dbname' => '']);
+try { new Mysqli2(); $ok('missing config throws', false); } catch (DatabaseException $e) { $ok('missing config throws', strpos($e->getMessage(), 'must be set') !== false); }
+Mysqli2::setOptions($saved);
+
 $db->query("DROP TABLE $t");
