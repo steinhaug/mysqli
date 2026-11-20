@@ -19,7 +19,9 @@ Requires PHP 8.0+ and `steinhaug/sqlbuddy` ^1.4 (installed automatically).
 
 # 1. Installation
 
-    composer require "steinhaug/mysqli":"^2.1"
+    composer require steinhaug/mysqli
+
+Composer picks the latest stable version and saves it as `^2.x` in composer.json.
 
 The class is in the global namespace: `Mysqli2` and `DatabaseException`.
 

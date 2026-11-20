@@ -131,7 +131,7 @@ To install the v1.9 library use composer:
 
 To install the library use composer:
 
-    composer require "steinhaug/mysqli":"^2.1"
+    composer require steinhaug/mysqli
 
     // documentation:
     docs/mysqli2_documentation-v2.1.md
