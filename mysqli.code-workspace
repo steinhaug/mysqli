@@ -10,7 +10,7 @@
         //"phpcs.executablePath": "./vendor/bin/phpcs",
         "workbench.colorCustomizations": {
             "activityBar.activeBackground": "#7d763f",
-            "activityBar.activeBorder": "#80bfb8",
+            "activityBar.activeBorder": "#e7e7e7",
             "activityBar.background": "#7d763f",
             "activityBar.foreground": "#e7e7e7",
             "activityBar.inactiveForeground": "#e7e7e799",
@@ -20,13 +20,22 @@
             "statusBar.background": "#5b562e",
             "statusBar.foreground": "#e7e7e7",
             "statusBarItem.hoverBackground": "#7d763f",
-            "statusBarItem.remoteBackground": "#5b562e",
+            "statusBarItem.remoteBackground": "#152a28",
             "statusBarItem.remoteForeground": "#e7e7e7",
             "titleBar.activeBackground": "#5b562e",
             "titleBar.activeForeground": "#e7e7e7",
             "titleBar.inactiveBackground": "#5b562e99",
             "titleBar.inactiveForeground": "#e7e7e799",
-            "commandCenter.border": "#e7e7e799"
+            "commandCenter.border": "#e7e7e799",
+            "activityBarTop.activeBackground": "#7d763f",
+            "activityBarTop.activeBorder": "#e7e7e7",
+            "activityBarTop.background": "#7d763f",
+            "activityBarTop.foreground": "#e7e7e7",
+            "activityBarTop.inactiveForeground": "#e7e7e799",
+            "commandCenter.foreground": "#e7e7e7",
+            "statusBar.debuggingBackground": "#5b562e",
+            "statusBar.debuggingForeground": "#e7e7e7",
+            "statusBar.inactiveBackground": "#5b562e"
         },
         "peacock.color": "#5b562e"
     }
