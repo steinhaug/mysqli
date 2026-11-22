@@ -1,7 +1,7 @@
 <?php
 
 class Mysqli2 extends mysqli {
-    private $version = '2.1.1';
+    private $version = '2.1.2';
     
     private static $devMode = false; // Default: production
 

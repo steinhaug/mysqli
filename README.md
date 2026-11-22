@@ -1,8 +1,12 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v2.1.1
+Mysqli Abstraction Layer v2.1.2
 
-Documentation: [docs/mysqli2_documentation-v2.1.md](docs/mysqli2_documentation-v2.1.md)
+**Documentation**
+
+- [Mysqli2 v2.1 documentation](docs/mysqli2_documentation-v2.1.md): the full manual.
+- [Mysqli2 v2.1 AI reference](docs/mysqli2-manual-v2.1.ultracompact.md): the same content compressed for AI assistants (about 1 400 tokens), for use as context.
+- Older versions: [v1.9](docs/mysqli2_documentation-v1.9.md), [v1.6](docs/mysqli2-documentation-v1.6.md).
 
 
 <div class="show_none">
@@ -14,6 +18,7 @@ Documentation: [docs/mysqli2_documentation-v2.1.md](docs/mysqli2_documentation-v
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v2.1.2](#v212)
     - [v2.1.1](#v211)
     - [v2.1.0](#v210)
     - [v2.0.2](#v202)
@@ -49,6 +54,12 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 # 2. Version History
 
 ## 2.1 Log
+
+### v2.1.2
+
+    - steinhaug/sqlbuddy is no longer installed automatically (moved to "suggest"). Install it yourself when using insert() / update().
+    - New: docs/mysqli2-manual-v2.1.ultracompact.md, a compact reference for AI assistants.
+    - README links all documentation.
 
 ### v2.1.1
 
@@ -128,22 +139,20 @@ To install the old deprecated library use composer:
 
     composer require "steinhaug/mysqli":"~1.6."
 
-    // documentation:
-    docs/mysqli2-documentation-v1.6.md
+Documentation: [docs/mysqli2-documentation-v1.6.md](docs/mysqli2-documentation-v1.6.md)
 
 To install the v1.9 library use composer:
 
     composer require "steinhaug/mysqli":"^1.9.0"
 
-    // documentation:
-    docs/mysqli2_documentation-v1.9.md
+Documentation: [docs/mysqli2_documentation-v1.9.md](docs/mysqli2_documentation-v1.9.md)
 
 To install the library use composer:
 
     composer require steinhaug/mysqli
+    composer require steinhaug/sqlbuddy   // optional, needed for insert() / update()
 
-    // documentation:
-    docs/mysqli2_documentation-v2.1.md
+Documentation: [docs/mysqli2_documentation-v2.1.md](docs/mysqli2_documentation-v2.1.md), AI reference: [docs/mysqli2-manual-v2.1.ultracompact.md](docs/mysqli2-manual-v2.1.ultracompact.md)
 
 Dump autoloaders:  
 

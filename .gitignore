@@ -3,3 +3,7 @@ credentials.php
 composer.lock
 /logs
 /_removed/**/*
+
+# docs: only the Mysqli2 documentation is tracked
+/docs/*
+!/docs/mysqli2*.md

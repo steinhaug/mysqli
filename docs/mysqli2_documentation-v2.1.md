@@ -2,7 +2,9 @@
 
 Mysqli2 extends PHP's native `mysqli`. Every native method (`set_charset`, `begin_transaction`, `real_escape_string`, ...) and procedural `mysqli_*` call still works on the instance. On top of that it adds prepared statements in one call, short query helpers, a table prefix, and one place where all database errors end up.
 
-Requires PHP 8.0+ and `steinhaug/sqlbuddy` ^1.4.3 (installed automatically). INSERT and UPDATE are written with sqlbuddy and run by Mysqli2, see [6.2](#62-insert-and-update-with-sqlbuddy).
+Requires PHP 8.0+. INSERT and UPDATE are written with `steinhaug/sqlbuddy` ^1.4.3 and run by Mysqli2, see [6.2](#62-insert-and-update-with-sqlbuddy). sqlbuddy is a separate package you install yourself.
+
+A compact version of this documentation, written for AI assistants, is in [mysqli2-manual-v2.1.ultracompact.md](mysqli2-manual-v2.1.ultracompact.md).
 
 # Table of Contents
 
@@ -22,6 +24,12 @@ Requires PHP 8.0+ and `steinhaug/sqlbuddy` ^1.4.3 (installed automatically). INS
     composer require steinhaug/mysqli
 
 Composer picks the latest stable version and saves it as `^2.x` in composer.json.
+
+sqlbuddy is not installed automatically. Add it when you use `insert()` / `update()`:
+
+    composer require steinhaug/sqlbuddy
+
+The rest of the class works without it.
 
 The class is in the global namespace: `Mysqli2` and `DatabaseException`.
 
