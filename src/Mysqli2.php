@@ -1,7 +1,7 @@
 <?php
 
 class Mysqli2 extends mysqli {
-    private $version = '2.1.0';
+    private $version = '2.1.1';
     
     private static $devMode = false; // Default: production
 
@@ -331,21 +331,20 @@ class Mysqli2 extends mysqli {
                 return $this->handleError($this->error, $sql, $this->errno);
             }
             
-            // Bind parameters if provided
-            if ($types && $params) {
-                // Validate parameter count matches type string
-                $expectedCount = strlen($types);
-                $actualCount = count($params);
-                
-                if ($expectedCount !== $actualCount) {
-                    $stmt->close();
-                    return $this->handleError(
-                        "Parameter count mismatch: Query expects {$expectedCount} parameters (types: '{$types}'), but {$actualCount} provided",
-                        $sql,
-                        0
-                    );
-                }
-                
+            // Placeholders, types and values must match, or bind_param() throws past handleError()
+            $params = $params ?: []; // v1.6 callers may pass false
+            $actualCount = count($params);
+            $expectedCount = $stmt->param_count;
+            if ($expectedCount !== $actualCount || ($actualCount && strlen((string)$types) !== $actualCount)) {
+                $stmt->close();
+                return $this->handleError(
+                    "Parameter count mismatch: Query has {$expectedCount} placeholders, types '{$types}' has " . strlen((string)$types) . ", but {$actualCount} values provided",
+                    $sql,
+                    0
+                );
+            }
+
+            if ($actualCount) {
                 array_unshift($params, $types);
                 call_user_func_array([$stmt, 'bind_param'], $this->refValues($params));
             }
@@ -553,7 +552,13 @@ class Mysqli2 extends mysqli {
     public function insert($table, $sql)
     {
         // prepared_build() adds the backticks itself
-        return $this->execute($sql->prepared_build('insert', self::$prefix . $table));
+        try {
+            $parts = $sql->prepared_build('insert', self::$prefix . $table);
+        } catch (\Exception $e) {
+            // sqlbuddy errors (unknown type, ...) go through the normal error handling
+            return $this->handleError($e->getMessage());
+        }
+        return $this->execute($parts);
     }
 
     /**
@@ -568,7 +573,11 @@ class Mysqli2 extends mysqli {
      */
     public function update($table, $sql, $where, array $params = [])
     {
-        [$query, $types, $values] = $sql->prepared_build('update', self::$prefix . $table, $where);
+        try {
+            [$query, $types, $values] = $sql->prepared_build('update', self::$prefix . $table, $where);
+        } catch (\Exception $e) {
+            return $this->handleError($e->getMessage());
+        }
         foreach ($params as $p) {
             $types .= is_int($p) ? 'i' : (is_float($p) ? 'd' : 's');
             $values[] = $p;

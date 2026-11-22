@@ -1,6 +1,6 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v2.1.0
+Mysqli Abstraction Layer v2.1.1
 
 Documentation: [docs/mysqli2_documentation-v2.1.md](docs/mysqli2_documentation-v2.1.md)
 
@@ -14,6 +14,7 @@ Documentation: [docs/mysqli2_documentation-v2.1.md](docs/mysqli2_documentation-v
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v2.1.1](#v211)
     - [v2.1.0](#v210)
     - [v2.0.2](#v202)
     - [v2.0.1](#v201)
@@ -48,6 +49,14 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 # 2. Version History
 
 ## 2.1 Log
+
+### v2.1.1
+
+    - Requires steinhaug/sqlbuddy ^1.4.3 (null binds as '', decimal binds as an exact string, forgiving datetime).
+    - insert() / update(): sqlbuddy errors (unknown type, missing WHERE) go through handleError(): error handler, getLastError(), DatabaseException or false.
+    - execute(): checks the number of ? placeholders too, so every parameter mismatch becomes a DatabaseException instead of a raw ArgumentCountError.
+    - Documentation: section 6.2 rewritten for sqlbuddy (rule of thumb, bind types, return values and $mysqli->info, empty queue, WHERE null/bool).
+    - New test: tests/SqlbuddyIntegrationTest.php.
 
 ### v2.1.0
 

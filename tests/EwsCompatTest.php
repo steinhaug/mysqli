@@ -105,4 +105,13 @@ $ok('rows', count($db->rows("SELECT * FROM $t")) === $total && isset($db->rows("
 $ok('row empty', $db->row("SELECT * FROM $t WHERE id = 999") === null);
 Mysqli2::setPrefix('');
 
+// v2.1.1: every parameter mismatch goes through handleError(), never a raw ArgumentCountError
+$mismatch = function ($fn) { try { $fn(); return 'no error'; } catch (DatabaseException $e) { return str_contains($e->getMessage(), 'Parameter count mismatch') ? 'ok' : $e->getMessage(); } catch (Throwable $e) { return get_class($e); } };
+$sql = new sqlbuddy; $sql->que('name', '?', 'raw');
+$ok("unquoted ? in raw value -> DatabaseException", $mismatch(fn() => $db->update($t, $sql, 'id = ?', [1])) === 'ok');
+$ok('placeholders but no values -> DatabaseException', $mismatch(fn() => $db->execute("SELECT * FROM $t WHERE id = ?")) === 'ok');
+$ok('values but no placeholders -> DatabaseException', $mismatch(fn() => $db->execute("SELECT * FROM $t", 'i', [1])) === 'ok');
+$ok('types shorter than values -> DatabaseException', $mismatch(fn() => $db->execute("SELECT * FROM $t WHERE id = ? AND uid = ?", 'i', [1, 2])) === 'ok');
+$ok('v1.6 style false params still work', count($db->prepared_query("SELECT * FROM $t", false, false)) === $total);
+
 $db->query("DROP TABLE $t");

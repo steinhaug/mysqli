@@ -2,7 +2,7 @@
 
 Mysqli2 extends PHP's native `mysqli`. Every native method (`set_charset`, `begin_transaction`, `real_escape_string`, ...) and procedural `mysqli_*` call still works on the instance. On top of that it adds prepared statements in one call, short query helpers, a table prefix, and one place where all database errors end up.
 
-Requires PHP 8.0+ and `steinhaug/sqlbuddy` ^1.4 (installed automatically).
+Requires PHP 8.0+ and `steinhaug/sqlbuddy` ^1.4.3 (installed automatically). INSERT and UPDATE are written with sqlbuddy and run by Mysqli2, see [6.2](#62-insert-and-update-with-sqlbuddy).
 
 # Table of Contents
 
@@ -145,7 +145,7 @@ $n    = $mysqli->execute('DELETE FROM users WHERE id = ?', 'i', [$id]);
 $id = $mysqli->execute(['INSERT INTO users (name) VALUES (?)', 's', [$name]]);
 ```
 
-- **Types**, one letter per `?`: `i` integer, `d` double/decimal, `s` string, `b` blob. If the number of types and values differ, it fails with "Parameter count mismatch".
+- **Types**, one letter per `?`: `i` integer, `d` double, `s` string, `b` blob. For exact DECIMAL values, bind them as `s` (a number string), like sqlbuddy does. If the number of `?`, types and values don't all match, it fails with "Parameter count mismatch".
 - **No parameters.** If `$types` or `$params` is empty, nothing is bound. Use this only for SQL that contains no outside input.
 - **UPDATE counts changed rows.** MySQL's affected rows only counts rows that actually changed, so an UPDATE that sets the same value returns `0`.
 
@@ -269,24 +269,171 @@ $rows = $mysqli->rows('SELECT * FROM ' . $mysqli->t('eu_news') . ' ORDER BY id D
 
 `insert()`, `update()`, `count()` and `exists()` take the table name without the prefix and add it themselves. The [schema utilities](#7-schema-utilities) and `get_row_count()` take the full table name.
 
-## 6.2 insert($table, $sqlbuddy) and update($table, $sqlbuddy, $where, $params = [])
+## 6.2 insert() and update() with sqlbuddy
 
-These build the query from a [sqlbuddy](https://packagist.org/packages/steinhaug/sqlbuddy) object and run it as a prepared statement.
+Writing data is split between two classes:
+
+- **[sqlbuddy](https://packagist.org/packages/steinhaug/sqlbuddy)** interprets and queues the values with `que()` / `post()`. Types, NULL handling, `NOW()` and length limits all work as described in the sqlbuddy manual.
+- **Mysqli2** takes over at the build point. It builds the query with sqlbuddy's `prepared_build()`, adds the table prefix and runs it as a prepared statement.
+
+So you never call `build()` or `prepared_build()` yourself, and no global `$mysqli` is needed (only sqlbuddy's `build()` uses it).
+
+### Rule of thumb
 
 ```php
 $sql = new sqlbuddy;
-$sql->que('title',   $title, 'string');
-$sql->que('hits',    0, 'int');
-$sql->que('created', 'NOW()', 'datetime');
-$id = $mysqli->insert('eu_news', $sql);              // returns insert_id
+$sql->que('id', $id, 'int');
 
-$sql = new sqlbuddy;
-$sql->que('title', $title, 'string');
-$n = $mysqli->update('eu_news', $sql, 'id = ?', [$id]); // returns affected rows
+// insert: ->insert(table, sqlbuddy)
+$sid = $mysqli->insert('table_name', $sql);
+
+// update: ->update(table, sqlbuddy, where, [values])
+$rows = $mysqli->update('table_name', $sql, 'id = ?', [$file_id]);
 ```
 
-- **Inline values.** `NULL`, `NOW()` (in date/datetime/raw mode), `raw` and `col` values are written into the SQL. Everything else is bound as a parameter.
-- **WHERE values.** The values for `?` in `$where` are bound with types guessed from PHP: int becomes `i`, float becomes `d`, everything else `s`. Cast first if needed, e.g. `[(int)$_GET['id']]`.
+This replaces the old way:
+
+```php
+$mysqli->query($sql->build('insert', 'table_name'));
+$sid = $mysqli->insert_id;
+$success = $mysqli->query($sql->build('update', 'table_name', 'id=' . $file_id));
+```
+
+### What they do
+
+| | `insert($table, $sql)` | `update($table, $sql, $where, $params = [])` |
+|---|---|---|
+| Builds with | `prepared_build('insert', prefix . $table)` | `prepared_build('update', prefix . $table, $where)` |
+| WHERE values | – | `?` in `$where`, bound from `$params` |
+| Returns | `insert_id` (affected rows if the table has no AUTO_INCREMENT) | number of **changed** rows |
+| On error | throws `DatabaseException` (or returns `false` with exceptions off), also for sqlbuddy errors | same |
+
+```php
+$sql = new sqlbuddy;
+$sql->que('email',   $email, 'email');
+$sql->que('name',    $name, 'string:100');
+$sql->que('phone',   $phone, 'strornull:20');   // empty → NULL
+$sql->que('created', 'NOW()', 'datetime');      // SQL NOW(), not bound
+$id = $mysqli->insert('customers', $sql);
+// INSERT INTO `ews_customers` (`email`, `name`, `phone`, `created`) VALUES (?, ?, NULL, NOW())
+```
+
+sqlbuddy picks the bind types for the values:
+
+| sqlbuddy type | Bound as |
+|---|---|
+| `int`, `tinyint`, `boolean` | `i` |
+| `float` | `d` |
+| `decimal`, `dec` | `s`: an exact number string, so `DECIMAL(20,6)` keeps every digit |
+| strings, `email`, `date`, `time`, `datetime` | `s` |
+
+**Errors from sqlbuddy** go through the normal error handling. An unknown type (`que('c', 'x', 'bogus')`) or an `update()` without WHERE calls the error handler, updates `getLastError()`, and throws `DatabaseException` (or returns `false` with exceptions off).
+
+### Table name and prefix
+
+Pass the table name **without** the prefix. With `Mysqli2::setPrefix('ews_')`:
+
+```php
+$mysqli->insert('customers', $sql);          // INSERT INTO `ews_customers` ...
+$mysqli->insert($sw_dp . 'customers', $sql); // ❌ INSERT INTO `ews_ews_customers` ...
+```
+
+Without `setPrefix()` the prefix is empty and the name is used as given.
+
+### WHERE values
+
+Put `?` in the WHERE clause and pass the values in `$params`, instead of gluing them into the string:
+
+```php
+$mysqli->update('customers', $sql, 'id = ?', [$id]);
+$mysqli->update('customers', $sql, 'shop_id = ? AND email = ?', [$shopId, $email]);
+```
+
+- **Types are guessed from PHP:** int becomes `i`, float becomes `d`, everything else `s`. A string id like `'1'` from `$_GET` works, but cast it yourself to be explicit: `[(int)$_GET['id']]`.
+- **`null` never matches.** `id = ?` with `[null]` becomes `id = NULL`, which is never true, so the update silently returns `0`. Write `IS NULL` in `$where` instead.
+- **Booleans** are sent as `'1'` / `''`. Against a numeric column that works like 1 / 0, but cast to int to be explicit: `[(int)$active]`.
+- **The structure is still raw.** Column names and operators in `$where` go into the SQL as written, so they must never come from user input.
+
+### Return value: 0 means nothing changed
+
+`update()` returns the number of rows MySQL actually **changed**. Running the same update twice gives `1` and then `0`. `0` is not an error, because errors throw.
+
+If you need to know why it was `0`, read `$mysqli->info` right after the update, before the next query overwrites it:
+
+```php
+if ($mysqli->update('customers', $sql, 'id = ?', [$id]) === 0) {
+    preg_match('/Rows matched: (\d+)/', $mysqli->info, $m);
+    if ((int)$m[1] === 0) {
+        // no row with that id
+    } else {
+        // the row was already up to date
+    }
+}
+```
+
+| `$mysqli->info` | Meaning |
+|---|---|
+| `Rows matched: 1  Changed: 1  Warnings: 0` | updated |
+| `Rows matched: 1  Changed: 0  Warnings: 0` | row found, values were already the same |
+| `Rows matched: 0  Changed: 0  Warnings: 0` | no row matched the WHERE |
+
+With exceptions off, check failure with `=== false` (then read `getLastError()`).
+
+### Empty queue: check status()
+
+- **Empty `update()`** gives `UPDATE ... SET  WHERE id = ?`, which fails with an SQL syntax error.
+- **Empty `insert()` does not fail.** It runs `INSERT INTO t () VALUES ()` and silently creates a row with only default values.
+
+When columns are added conditionally, check `$sql->status()` before `insert()` and `update()`:
+
+```php
+$sql = new sqlbuddy;
+if ($name !== $old['name'])   $sql->que('name', $name);
+if ($price !== $old['price']) $sql->que('price', $price, 'decimal');
+
+if ($sql->status()) {
+    $mysqli->update('products', $sql, 'id = ?', [(int)$id]);
+}
+```
+
+### Only inline values
+
+`raw`, `col`, `NOW()` and `NULL` are written into the SQL and not bound. That works fine, and only the WHERE values are bound:
+
+```php
+$sql = new sqlbuddy;
+$sql->que('views', 'views+1', 'raw');
+$sql->que('last_seen', 'NOW()', 'datetime');
+$mysqli->update('pages', $sql, 'id = ?', [(int)$id]);
+// UPDATE `ews_pages` SET `views`=views+1, `last_seen`=NOW() WHERE id = ?
+```
+
+A `?` inside a string literal in a `raw` value (`CONCAT('a', '?')`) is fine. An unquoted `?` in a `raw` value counts as a placeholder and fails with "Parameter count mismatch".
+
+### PHP null without nullable
+
+`$sql->que('name', null)` binds an empty string `''` (same as sqlbuddy's `build()`), so it works on `NOT NULL` columns. Use a nullable type (`strornull`, `intornull`, ...) or `que('name', 'null', 'raw')` when NULL is what you mean.
+
+### Forms and loops
+
+```php
+$sql = new sqlbuddy;
+$sql->post('newsletter', 'newsletter', 'checkbox');
+$sql->post('company',    'company',    'string:100', true); // empty → NULL
+$mysqli->update('customers', $sql, 'id = ?', [(int)$id]);
+
+$sql = new sqlbuddy;
+foreach ($rows as $r) {
+    $sql->flush(); // reuse the object
+    $sql->que('sku', $r['sku'], 'string:32');
+    $sql->que('qty', $r['qty'], 'int');
+    $mysqli->insert('stock', $sql);
+}
+```
+
+### The older prepared variant
+
+`$mysqli->prepared_insert($sql->prepared_build('insert', 'ews_customers'))` still works, but only use it in old code. It does not add the prefix, so you pass the full table name, and WHERE values have to be glued into the string instead of bound.
 
 ## 6.3 count($table, $where = '', $types = '', $params = [])
 
@@ -397,6 +544,9 @@ if (!$mysqli->col_exists('ews_users', 'phone')) {
 | `error_message()` | removed | `getLastError()['error']` |
 | `insert_multi_query`, `return_full_columns`, `return_columns`, `parse_col_type`, `considered_null`, `_bool` | removed | |
 | `"INSERT INTO ... (" . $sql->output('keys') . ") VALUES (" . $sql->output('values') . ")"` | `$mysqli->insert('table', $sql)` | prepared, prefix added |
+| `$mysqli->query($sql->build('insert', 'table'))` + `$mysqli->insert_id` | `$id = $mysqli->insert('table', $sql)` | see [6.2](#62-insert-and-update-with-sqlbuddy) |
+| `$mysqli->query($sql->build('update', 'table', 'id=' . $id))` | `$mysqli->update('table', $sql, 'id = ?', [$id])` | returns changed rows, not `true` |
+| `$mysqli->prepared_insert($sql->prepared_build(...))` | `$mysqli->insert()` / `update()` | prefix added, WHERE values bound |
 | `"\`" . $sw_dp . "table\`"` | `$mysqli->t('table')` | after `Mysqli2::setPrefix($sw_dp)` |
 | `mysqli_num_rows($mysqli->query('SELECT * ...'))` | `$mysqli->count('table', ...)` | |
 
@@ -406,6 +556,7 @@ Things to search for when upgrading:
     prepared_query1(    with 5 arguments
     ->query(            where the result of an INSERT/UPDATE is used as an object
     ->log( / ->echo(    remove
+    ->build(            sqlbuddy: replace with $mysqli->insert() / update()
 
 # 10. Migrating from v1.9 / v2.0.0
 
