@@ -1,7 +1,7 @@
 <?php
 
 class Mysqli2 extends mysqli {
-    private $version = '2.1.2';
+    private $version = '2.2.0';
     
     private static $devMode = false; // Default: production
 
@@ -425,46 +425,6 @@ class Mysqli2 extends mysqli {
         } else {
             return $result[0];
         }
-    }
-
-    /**
-     * EWS compat: alias for execute()
-     */
-    public function prepared_query($sql, $types = '', $params = []) {
-        return $this->execute($sql, $types, $params);
-    }
-
-    /**
-     * EWS compat: alias for execute() (INSERT returns insert_id, or affected rows)
-     */
-    public function prepared_insert($sql, $types = '', $params = []) {
-        return $this->execute($sql, $types, $params);
-    }
-
-    /**
-     * EWS compat: single-result prepared query
-     *
-     * @param mixed $return 0: first column of first row, true: first row, 'default': all rows
-     * @param mixed $onEmpty Returned when there are no rows, or the query failed with exceptions disabled
-     * @return mixed
-     */
-    public function prepared_query1($sql, $types = '', $params = [], $return = 'default', $onEmpty = null) {
-        if ($types && !is_array($params)) {
-            $params = [$params];
-        }
-
-        $result = $this->execute($sql, $types, $params);
-
-        if (!is_array($result) || !count($result)) {
-            return $onEmpty;
-        }
-        if ($return === 0) {
-            return reset($result[0]);
-        }
-        if ($return === true) {
-            return $result[0];
-        }
-        return $result;
     }
 
     /**

@@ -1,4 +1,4 @@
-# Mysqli2 v2.1 – AI reference
+# Mysqli2 v2.2 – AI reference
 
 `class Mysqli2 extends mysqli` + `DatabaseException`, global namespace, PHP 8. All native mysqli methods/procedural calls work. sqlbuddy (^1.4.3) is a separate package, used only by insert()/update().
 
@@ -73,9 +73,13 @@ Other: getLastError(), getVersion(), isDev()/isProd().
 | `query($sql->build('insert', $t))` + insert_id | `insert($t, $sql)` |
 | `query($sql->build('update', $t, 'id=' . $id))` | `update($t, $sql, 'id = ?', [$id])` (returns int, not bool) |
 | `prepared_insert($sql->prepared_build(..))` | insert()/update() |
+| `prepared_query/prepared_insert(a,b,c)` | `execute(a,b,c)` |
+| `prepared_query1(a,b,c,true)` | `execute1(a,b,c,true)` |
+| `prepared_query1(a,b,c,0,null)` | `execute1(a,b,c,true)['col'] ?? null` |
+| `prepared_query1(a,b,c)` | `execute(a,b,c) ?: null` |
 | `` "`" . $sw_dp . "t`" `` | `t('t')` |
 | `mysqli_num_rows(query("SELECT * .."))` | `count()` |
 | num_rows + fetch loops | `rows()` / `row()` |
 | `error_message()` | `getLastError()['error']` |
 
-Aliases kept: prepared_query/prepared_insert = execute() (INSERT → insert_id, 4th arg ignored). prepared_query1($sql, $t, $p, $return, $onEmpty): 0 → value, true → row, default → all rows; no rows or failure (exceptions off) → $onEmpty. Removed: log(), echo(), process_error(), return_full_columns(), return_columns(), parse_col_type().
+Removed (v2.2.0): prepared_query(), prepared_insert(), prepared_query1() (see table). Removed earlier: log(), echo(), process_error(), return_full_columns(), return_columns(), parse_col_type().

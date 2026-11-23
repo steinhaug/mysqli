@@ -441,7 +441,7 @@ foreach ($rows as $r) {
 
 ### The older prepared variant
 
-`$mysqli->prepared_insert($sql->prepared_build('insert', 'ews_customers'))` still works, but only use it in old code. It does not add the prefix, so you pass the full table name, and WHERE values have to be glued into the string instead of bound.
+`$mysqli->execute($sql->prepared_build('insert', 'ews_customers'))` still works, but only use it in old code. It does not add the prefix, so you pass the full table name, and WHERE values have to be glued into the string instead of bound. (Before v2.2.0 this was written with the removed alias `prepared_insert()`.)
 
 ## 6.3 count($table, $where = '', $types = '', $params = [])
 
@@ -534,15 +534,15 @@ if (!$mysqli->col_exists('ews_users', 'phone')) {
 
 **Other:** `getLastError()`, `getVersion()`
 
-**v1.6 aliases:** `prepared_query`, `prepared_insert`, `prepared_query1` (see below)
+**v1.6 aliases** `prepared_query`, `prepared_insert`, `prepared_query1` were removed in v2.2.0 (see below)
 
 # 9. Migrating from v1.6 (EWS)
 
 | v1.6 | v2.1 | Note |
 |---|---|---|
-| `prepared_query($sql, $types, $vars)` | same, alias for `execute()` | INSERT now returns **insert_id**, not affected rows. The 4th argument (`'group:'` / `'flatten:'`) is gone and is silently ignored. |
-| `prepared_insert(...)` | same, alias for `execute()` | unchanged |
-| `prepared_query1($sql, $types, $vars, $return, $onEmpty)` | same | `$onEmpty` is now **returned** when there are no rows (or on error with exceptions off). In v1.6 a non-null value made it throw. `$return`: `0` value, `true` first row, default all rows. |
+| `prepared_query($sql, $types, $vars)` | `execute($sql, $types, $vars)` | removed in v2.2.0. INSERT returns **insert_id**, not affected rows. Drop the 4th argument (`'group:'` / `'flatten:'`). |
+| `prepared_insert(...)` | `execute(...)` | removed in v2.2.0 |
+| `prepared_query1($sql, $types, $vars, $return, $onEmpty)` | `execute1()` / `execute()` | removed in v2.2.0. `true` → `execute1(..., true)` (row or null). `0` → `execute1(..., true)['col'] ?? null` (`execute1(..., 0)` throws on no rows). Default → `execute(...) ?: null`. |
 | `query1($sql, $return)` | same | |
 | `result(...)->query(...)` | same | the only chaining left |
 | `table_exist`, `index_exist`, `col_exists`, `drop_col_if_exists`, `get_row_count` | same | `drop_col_if_exists` now reports a failed ALTER |
@@ -554,14 +554,14 @@ if (!$mysqli->col_exists('ews_users', 'phone')) {
 | `"INSERT INTO ... (" . $sql->output('keys') . ") VALUES (" . $sql->output('values') . ")"` | `$mysqli->insert('table', $sql)` | prepared, prefix added |
 | `$mysqli->query($sql->build('insert', 'table'))` + `$mysqli->insert_id` | `$id = $mysqli->insert('table', $sql)` | see [6.2](#62-insert-and-update-with-sqlbuddy) |
 | `$mysqli->query($sql->build('update', 'table', 'id=' . $id))` | `$mysqli->update('table', $sql, 'id = ?', [$id])` | returns changed rows, not `true` |
-| `$mysqli->prepared_insert($sql->prepared_build(...))` | `$mysqli->insert()` / `update()` | prefix added, WHERE values bound |
+| `$mysqli->prepared_insert($sql->prepared_build(...))` (removed alias) | `$mysqli->insert()` / `update()` | prefix added, WHERE values bound |
 | `"\`" . $sw_dp . "table\`"` | `$mysqli->t('table')` | after `Mysqli2::setPrefix($sw_dp)` |
 | `mysqli_num_rows($mysqli->query('SELECT * ...'))` | `$mysqli->count('table', ...)` | |
 
 Things to search for when upgrading:
 
-    prepared_query(     with 4 arguments
-    prepared_query1(    with 5 arguments
+    prepared_query( / prepared_insert(   rename to execute( (drop a 4th argument)
+    prepared_query1(                     see the table above
     ->query(            where the result of an INSERT/UPDATE is used as an object
     ->log( / ->echo(    remove
     ->build(            sqlbuddy: replace with $mysqli->insert() / update()

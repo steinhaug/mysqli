@@ -93,10 +93,6 @@ $r = $try(fn() => $db->insert('customers', $sql));
 $ok('unknown column with exceptions off returns false', $r === false, var_export($r, true));
 Mysqli2::setUseExceptions(true);
 
-// legacy variant
-$sql = new sqlbuddy; $sql->que('name', 'legacy');
-$ok('prepared_insert(prepared_build()) legacy', is_int($r = $try(fn() => $db->prepared_insert($sql->prepared_build('insert', 'zzsb_customers')))), var_export($r, true));
-
 // '?' inside a string literal in a raw value is not a placeholder
 $sql = new sqlbuddy; $sql->que('name', "CONCAT('a', '?')", 'raw');
 $ok("raw containing '?' in a string literal", is_int($r = $try(fn() => $db->update('customers', $sql, 'id = ?', [$id]))), var_export($r, true));

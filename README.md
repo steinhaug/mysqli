@@ -1,6 +1,6 @@
 # Mysqli2
 
-Mysqli Abstraction Layer v2.1.2
+Mysqli Abstraction Layer v2.2.0
 
 **Documentation**
 
@@ -18,6 +18,7 @@ Mysqli Abstraction Layer v2.1.2
 - [1. Description](#1-description)
 - [2. Version History](#2-version-history)
   - [2.1 Log](#21-log)
+    - [v2.2.0](#v220)
     - [v2.1.2](#v212)
     - [v2.1.1](#v211)
     - [v2.1.0](#v210)
@@ -54,6 +55,11 @@ Mysqli2 is an enhanced wrapper around PHP's native MySQLi extension that provide
 # 2. Version History
 
 ## 2.1 Log
+
+### v2.2.0
+
+    - Removed the v1.6 (EWS) aliases prepared_query(), prepared_insert() and prepared_query1(). Use execute() / execute1().
+    - prepared_query1(..., 0, null) has no 1:1 replacement, execute1(..., 0) throws on no rows: use execute1(..., true)['col'] ?? null.
 
 ### v2.1.2
 
